@@ -1,0 +1,238 @@
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ipfs-cluster.koneksi.co.kr;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name ipfs-cluster.koneksi.co.kr;
+
+    ssl_certificate     /etc/ssl/certs/koneksi.co.kr/fullchain.pem;
+    ssl_certificate_key /etc/ssl/private/koneksi.co.kr/koneksi.co.kr.key;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers off;
+
+    client_max_body_size 10G;
+    proxy_read_timeout 300s;
+    proxy_connect_timeout 75s;
+
+    # Static Bearer: always allowed; no bandwidth tracking. Must match auth-validator.py on nodes.
+    set $static_bearer_key "Bearer uqvT3vJkqtLqyRZB6sXvHdteukQtqkkN";
+
+    # ----------------------------------------
+    # IPFS gateway: Range streaming + token-safe cache
+    # ----------------------------------------
+    location ~ ^/(ipfs|ipns)/ {
+        # Mark static bearer only; env determines where /gateway/bandwidth/update is sent (API there validates creds)
+        access_by_lua_block {
+            local auth = ngx.var.http_authorization or ""
+            local static_key = ngx.var.static_bearer_key or ""
+            if static_key ~= "" and auth == static_key then
+                ngx.ctx.is_static_bearer = true
+            end
+        }
+        access_log /var/log/nginx/bw_per_client.json bw_per_client;
+        proxy_pass https://get_pool;
+
+        limit_except GET HEAD {
+            proxy_pass https://rr_pool;
+        }
+
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+
+        # Keep backend behavior stable
+        proxy_set_header Host ipfs-cluster.koneksi.co.kr;
+
+        # Forward client info
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # download monitoring headers (optional; app uses Bearer today)
+        proxy_set_header Client-ID $http_client_id;
+        proxy_set_header Client-Secret $http_client_secret;
+        proxy_set_header Environment $http_environment;
+
+        # Forward auth token to upstream
+        proxy_set_header Authorization $http_authorization;
+
+        proxy_ssl_server_name on;
+        proxy_ssl_name $proxy_host;
+        proxy_ssl_verify off;
+
+        # Range pass-through for streaming preview
+        proxy_set_header Range $http_range;
+        proxy_set_header If-Range $http_if_range;
+
+        # Buffering ON so response is complete when log_by_lua runs (bandwidth tracking needs bytes_sent)
+        proxy_request_buffering off;
+        proxy_buffering on;
+
+        proxy_cache ipfs_cache;
+
+        # Include env in key so "with env" vs "no env" don't share cache (no env → backend 401, not cached 200)
+        proxy_cache_key "$scheme$proxy_host$request_uri|$http_authorization|$http_environment";
+
+        # Do not cache auth failures
+        proxy_cache_valid 401 403 0;
+
+        # Cache success responses
+        proxy_cache_valid 200 1d;
+        proxy_cache_valid 206 1d;
+
+        # proxy_cache_lock on;  # disabled: invalid args on this OpenResty build; cache still works
+        proxy_cache_use_stale updating error timeout http_500 http_502 http_503 http_504;
+        proxy_cache_background_update on;
+
+        # Serve ranges from cached responses when possible
+        proxy_force_ranges on;
+
+        # Retry next upstream
+        proxy_next_upstream error timeout invalid_header http_502 http_503 http_504;
+        proxy_next_upstream_tries 3;
+
+        add_header X-Cache-Status $upstream_cache_status always;
+        add_header Accept-Ranges bytes always;
+
+        # ----------------------------------------------------
+        # Bandwidth Tracking (Lua) - LB ONLY
+        # - ENV determines where /gateway/bandwidth/update is sent (staging/prod/uat).
+        # - Prod creds + env staging → POST to staging API (staging will fail creds).
+        # - Staging creds + env prod → POST to prod API (prod will fail creds). Same for uat.
+        # - Only counts successful downloads (200/206); async via ngx.timer.at.
+        # ------------------------------------------------
+        log_by_lua_block {
+            local auth = ngx.var.http_authorization or ""
+            local env = ngx.var.http_environment or ""
+            local client_id = ngx.var.http_client_id or ""
+            local client_secret = ngx.var.http_client_secret or ""
+
+            -- Skip: no env, or Static Bearer (never track static bearer)
+            if env == "" then
+                return
+            end
+            if ngx.ctx.is_static_bearer then
+                return
+            end
+            -- Must have either Bearer or Client-ID/Client-Secret to report bandwidth
+            if auth == "" and (client_id == "" or client_secret == "") then
+                return
+            end
+
+            local bytes = tonumber(ngx.var.bytes_sent) or 0
+            if bytes <= 0 then
+                return
+            end
+
+            -- Map environment to target host (no default to production)
+            local target_host
+            if env == "production" or env == "prod" then
+                target_host = "api.koneksi.co.kr"
+            elseif env == "staging" then
+                target_host = "staging.koneksi.co.kr"
+            elseif env == "uat" then
+                target_host = "uat.koneksi.co.kr"
+            else
+                -- Unknown environment value -> log and skip (prevents misrouting)
+                ngx.log(ngx.WARN, "Unknown Environment value: '", env, "' - skipping bandwidth update")
+                return
+            end
+
+            local url = "https://" .. target_host .. "/gateway/bandwidth/update"
+
+            local headers = {
+                ["Content-Type"] = "application/json",
+                ["Environment"] = env,
+            }
+            if auth ~= "" then
+                headers["Authorization"] = auth
+            else
+                headers["Client-ID"] = client_id
+                headers["Client-Secret"] = client_secret
+            end
+
+            local body = '{"bytes_transferred":' .. bytes .. '}'
+
+            local ok, err = ngx.timer.at(0, function(premature, url, headers, body)
+                if premature then return end
+
+                local http = require "resty.http"
+                local httpc = http.new()
+                httpc:set_timeout(2000)
+
+                local res, req_err = httpc:request_uri(url, {
+                    method = "POST",
+                    headers = headers,
+                    body = body,
+                    ssl_verify = true
+                })
+
+                if not res then
+                    ngx.log(ngx.ERR, "bandwidth update failed: ", req_err)
+                    return
+                end
+
+                if res.status < 200 or res.status >= 300 then
+                    ngx.log(ngx.ERR, "bandwidth update non-2xx: ", res.status, " body=", res.body or "")
+                end
+            end, url, headers, body)
+
+            if not ok then
+                ngx.log(ngx.ERR, "failed to create timer: ", err)
+            end
+        }
+    }
+
+    # ----------------------------------------
+    # Everything else: no caching (uploads/API/etc)
+    # ----------------------------------------
+
+
+    #location = / {
+    #    return 200 "OK\n";
+    #    add_header Content-Type text/plain;
+    #}   
+    
+    
+
+
+
+    location / {
+        proxy_pass https://rr_pool;
+
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+
+        proxy_set_header Host ipfs-cluster-5.koneksi.co.kr;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_set_header Authorization $http_authorization;
+
+        proxy_ssl_server_name on;
+        proxy_ssl_name $proxy_host;
+        proxy_ssl_verify off;
+
+        # download monitoring headers (optional)
+        proxy_set_header Client-ID $http_client_id;
+        proxy_set_header Client-Secret $http_client_secret;
+        proxy_set_header Environment $http_environment;
+
+        proxy_request_buffering off;
+        proxy_buffering off;
+        chunked_transfer_encoding on;
+
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 300s;
+
+        proxy_next_upstream error timeout invalid_header http_502 http_503 http_504;
+        proxy_next_upstream_tries 3;
+    }
+}

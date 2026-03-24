@@ -1,0 +1,209 @@
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ipfs-cluster-1.koneksi.co.kr;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name ipfs-cluster-1.koneksi.co.kr;
+    
+    ssl_certificate /etc/ssl/certs/koneksi.co.kr/koneksi.co.kr.crt;
+    ssl_certificate_key /etc/ssl/private/koneksi.co.kr/koneksi.co.kr.key;
+    
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers off;
+    
+    client_max_body_size 0;
+    proxy_read_timeout 300s;
+    proxy_connect_timeout 75s;
+    
+    # Local authentication validation endpoint
+    location = /auth-validate {
+        internal;
+        proxy_pass http://127.0.0.1:8888/;
+        proxy_method POST;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header Client-ID $http_client_id;
+        proxy_set_header Client-Secret $http_client_secret;
+        proxy_set_header Environment $http_environment;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 10s;
+    }
+    
+    # IPFS Cluster API endpoint (with authentication)
+    location /cluster/ {
+        # Authentication
+        auth_request /auth-validate;
+        
+        # Handle CORS preflight
+        if ($request_method = 'OPTIONS') {
+            add_header 'Access-Control-Allow-Origin' '*';
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE';
+            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,Client-ID,Client-Secret,Environment';
+            add_header 'Access-Control-Max-Age' 1728000;
+            add_header 'Content-Type' 'text/plain; charset=utf-8';
+            add_header 'Content-Length' 0;
+            return 204;
+        }
+
+
+        # Hide upstream CORS headers
+        proxy_hide_header Access-Control-Allow-Origin;
+        proxy_hide_header Access-Control-Allow-Methods;
+        proxy_hide_header Access-Control-Allow-Headers;
+        
+        # Add CORS headers
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE' always;
+        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,Client-ID,Client-Secret,Environment' always;
+        
+        # Rewrite to remove /cluster prefix
+        rewrite ^/cluster/(.*) /$1 break;
+        
+        proxy_pass http://ipfs_cluster;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Important for streaming and large file uploads
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_http_version 1.1;
+        proxy_set_header Connection '';
+        chunked_transfer_encoding on;
+        
+        # Timeouts for large file uploads
+        proxy_connect_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        send_timeout 300s;
+    }
+
+    # IPFS API endpoint
+    location /api/v0/ {
+        # Authentication
+        auth_request /auth-validate;
+        
+        # Handle CORS preflight
+        if ($request_method = "OPTIONS") {
+            add_header "Access-Control-Allow-Origin" "*";
+            add_header "Access-Control-Allow-Methods" "GET, POST, OPTIONS";
+            add_header "Access-Control-Allow-Headers" "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,Client-ID,Client-Secret,Environment";
+            add_header "Access-Control-Max-Age" 1728000;
+            add_header "Content-Type" "text/plain; charset=utf-8";
+            add_header "Content-Length" 0;
+            return 204;
+        }
+        
+        # Hide upstream CORS headers
+        proxy_hide_header "Access-Control-Allow-Origin";
+        proxy_hide_header "Access-Control-Allow-Methods";
+        proxy_hide_header "Access-Control-Allow-Headers";
+        
+        # Add our own CORS headers
+        add_header "Access-Control-Allow-Origin" "*" always;
+        add_header "Access-Control-Allow-Methods" "GET, POST, OPTIONS" always;
+        add_header "Access-Control-Allow-Headers" "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,Client-ID,Client-Secret,Environment" always;
+        
+        proxy_pass http://ipfs_api;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_request_buffering off;
+    }
+    location /ipfs/ {
+        # Authentication
+        auth_request /auth-validate;
+        
+        # Handle CORS preflight
+        if ($request_method = 'OPTIONS') {
+            add_header 'Access-Control-Allow-Origin' '*';
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS';
+            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,Client-ID,Client-Secret,Environment';
+            add_header 'Access-Control-Max-Age' 1728000;
+            add_header 'Content-Type' 'text/plain; charset=utf-8';
+            add_header 'Content-Length' 0;
+            return 204;
+        }
+        
+        # Hide upstream CORS headers
+        proxy_hide_header 'Access-Control-Allow-Origin';
+        proxy_hide_header 'Access-Control-Allow-Methods';
+        proxy_hide_header 'Access-Control-Allow-Headers';
+        
+        # Add our own CORS headers
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,Client-ID,Client-Secret,Environment' always;
+        
+        proxy_pass http://ipfs_gateway;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_cache_bypass $http_upgrade;
+
+        # ✅ Enable caching (incl. video partial content)
+        #proxy_cache ipfs_cache;
+        #proxy_cache_key "$scheme://$host$request_uri|$slice_range";
+        #proxy_cache_methods GET HEAD;
+        #proxy_cache_valid 200 206 30d;
+
+        #proxy_ignore_headers Cache-Control Expires Set-Cookie;
+        #proxy_hide_header Set-Cookie;
+
+        #proxy_cache_lock on;
+        #proxy_cache_use_stale updating error timeout http_500 http_502 http_503 http_504;
+        #proxy_cache_background_update on;
+
+        #add_header X-Cache-Status $upstream_cache_status always;
+
+        # ✅ Make Range requests cacheable (important for video preview)
+        #slice 1m;
+        #proxy_set_header Range $slice_range;
+        #proxy_set_header If-Range "";
+
+        # ✅ Must be ON for caching
+#        proxy_buffering on;
+#        proxy_request_buffering on;
+
+#        proxy_http_version 1.1;
+#        proxy_set_header Connection "";
+
+
+
+#    }
+    # ➕ ADD THIS NEW BLOCK BELOW EVERYTHING
+#    location /ipfs-node/repo/stat {
+#       allow 160.202.162.17;
+#       deny all;
+ #       proxy_hide_header 'Access-Control-Allow-Origin';
+ #       proxy_hide_header 'Access-Control-Allow-Methods';
+ #       proxy_hide_header 'Access-Control-Allow-Headers';
+
+    # Add CORS headers
+#        add_header 'Access-Control-Allow-Origin' '*' always;
+#        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+#        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
+
+#        proxy_pass http://127.0.0.1:5001/api/v0/repo/stat;
+#        proxy_set_header Authorization "Bearer your_actual_token_here";
+#        proxy_set_header Host $host;
+#        proxy_set_header X-Real-IP $remote_addr;
+#        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#        proxy_set_header X-Forwarded-Proto $scheme;
+#        proxy_buffering off;
+
+        #proxy_pass http://127.0.0.1:5001/api/v0/repo/stat;
+        #proxy_set_header Authorization "Bearer your_token_here";
+    }
+}
