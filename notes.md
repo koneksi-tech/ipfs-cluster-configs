@@ -50,3 +50,9 @@ today:
 - Migrate Staging env to Koneksi DO
 - Migrate the data from old Db to new
 - Setup terraform deployment for staging environment
+
+today:
+- Finalize the domain for staging UAT and Prod Environment
+- Migrate the data from old Db to new
+- Sync with Aldrick to resolve mongodb issue
+- Plan and make diagram for kubernetes deploymnet in NHN cloud

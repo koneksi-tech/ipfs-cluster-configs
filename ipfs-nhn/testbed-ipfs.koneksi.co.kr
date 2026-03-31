@@ -1,0 +1,183 @@
+map $http_environment $auth_backend {
+    production https://api.koneksi.co.kr/auth/validate;
+    uat        https://uat.koneksi.co.kr/auth/validate;
+    staging    https://staging.koneksi.co.kr/auth/validate;
+    default    "";
+}
+
+map $http_environment $bandwidth_backend {
+    production https://api.koneksi.co.kr/gateway/bandwidth/update;
+    uat        https://uat.koneksi.co.kr/gateway/bandwidth/update;
+    staging    https://staging.koneksi.co.kr/gateway/bandwidth/update;
+    default    "";
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name testbed-ipfs.koneksi.co.kr;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/letsencrypt;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name testbed-ipfs.koneksi.co.kr;
+    resolver 1.1.1.1 8.8.8.8 ipv6=off valid=300s;
+    resolver_timeout 5s;
+    lua_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
+    lua_ssl_verify_depth 5;
+
+    ssl_certificate /etc/nginx/ssl/testbed-ipfs.koneksi.co.kr/fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/testbed-ipfs.koneksi.co.kr/privkey.pem;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:10m;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+
+    client_max_body_size 0;
+    proxy_request_buffering off;
+    proxy_buffering off;
+    proxy_read_timeout 12h;
+    proxy_send_timeout 12h;
+
+    location /ipfs/ {
+        auth_request /auth_check;
+        log_by_lua_file /etc/nginx/lua/bandwidth_hook.lua;
+
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    location /ipns/ {
+        auth_request /auth_check;
+        log_by_lua_file /etc/nginx/lua/bandwidth_hook.lua;
+
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    location = /api/v0/add {
+        satisfy any;
+        allow 127.0.0.1;
+        allow ::1;
+        allow 192.168.0.0/24;
+        allow 125.6.39.137;
+        allow 133.186.151.67;
+        allow 133.186.151.108;
+        allow 158.247.247.112;
+        auth_request /auth_check;
+        deny all;
+
+        proxy_pass http://127.0.0.1:9095/api/v0/add?chunker=size-1048576&$args;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    location = /kubo/api/v0/add {
+        satisfy any;
+        allow 127.0.0.1;
+        allow ::1;
+        allow 192.168.0.0/24;
+        allow 125.6.39.137;
+        allow 133.186.151.67;
+        allow 133.186.151.108;
+        allow 158.247.247.112;
+        auth_request /auth_check;
+        deny all;
+
+        proxy_pass http://127.0.0.1:5001/api/v0/add?chunker=size-1048576&$args;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    location /api/v0/ {
+        allow 127.0.0.1;
+        allow ::1;
+        allow 192.168.0.0/24;
+        allow 125.6.39.137;
+        allow 133.186.151.67;
+        allow 133.186.151.108;
+        allow 158.247.247.112;
+        deny all;
+
+        proxy_pass http://127.0.0.1:9095;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    location /kubo/api/v0/ {
+        allow 127.0.0.1;
+        allow ::1;
+        allow 192.168.0.0/24;
+        allow 125.6.39.137;
+        allow 133.186.151.67;
+        allow 133.186.151.108;
+        allow 158.247.247.112;
+        deny all;
+
+        rewrite ^/kubo(/api/v0/.*)$ $1 break;
+        proxy_pass http://127.0.0.1:5001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    location /cluster/ {
+        allow 127.0.0.1;
+        allow ::1;
+        allow 192.168.0.0/24;
+        allow 125.6.39.137;
+        allow 133.186.151.67;
+        allow 133.186.151.108;
+        allow 158.247.247.112;
+        deny all;
+
+        rewrite ^/cluster/(.*)$ /$1 break;
+        proxy_pass http://127.0.0.1:9094;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    location = /auth_check {
+        internal;
+
+        if ($http_authorization = "Bearer uqvT3vJkqtLqyRZB6sXvHdteukQtqkkN") {
+            return 200;
+        }
+
+        if ($auth_backend = "") {
+            return 401;
+        }
+
+        proxy_pass              $auth_backend;
+        proxy_method            POST;
+        proxy_pass_request_body off;
+        proxy_set_header        Content-Length "";
+        proxy_set_header        Authorization  $http_authorization;
+        proxy_set_header        Client-ID      $http_client_id;
+        proxy_set_header        Client-Secret  $http_client_secret;
+        proxy_set_header        Environment    $http_environment;
+        proxy_ssl_server_name   on;
+    }
+
+    location = / {
+        default_type text/plain;
+        return 200 "testbed-ipfs.koneksi.co.kr\n";
+    }
+}
