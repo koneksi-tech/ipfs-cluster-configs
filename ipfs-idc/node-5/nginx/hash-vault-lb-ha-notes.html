@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vault load balancer vs Vault nodes — downtime explanation</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --text: #e7ecf3;
+      --muted: #9aa7b8;
+      --accent: #3d8bfd;
+      --border: #2d3a4d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 2rem 1.25rem 4rem;
+    }
+    .wrap { max-width: 48rem; margin: 0 auto; }
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    h1 {
+      font-size: 1.65rem;
+      font-weight: 600;
+      margin: 0 0 0.5rem;
+      letter-spacing: -0.02em;
+    }
+    .lede { color: var(--muted); font-size: 1.05rem; margin: 0; }
+    h2 {
+      font-size: 1.15rem;
+      margin: 2rem 0 0.75rem;
+      color: var(--accent);
+      font-weight: 600;
+    }
+    p { margin: 0 0 1rem; color: var(--text); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+      margin: 1rem 0 1.5rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.65rem 0.75rem;
+      border: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th { background: var(--panel); color: var(--muted); font-weight: 600; }
+    tr:nth-child(even) td { background: rgba(26, 35, 50, 0.5); }
+    ul { margin: 0 0 1rem; padding-left: 1.25rem; color: var(--text); }
+    li { margin-bottom: 0.35rem; }
+    .callout {
+      background: var(--panel);
+      border-left: 3px solid var(--accent);
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+      border-radius: 0 6px 6px 0;
+    }
+    .callout strong { color: var(--text); }
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    code {
+      font-family: ui-monospace, "Cascadia Code", monospace;
+      font-size: 0.9em;
+      background: var(--panel);
+      padding: 0.12em 0.4em;
+      border-radius: 4px;
+    }
+    a { color: var(--accent); }
+    .mermaid {
+      background: var(--panel);
+      padding: 1.25rem;
+      border-radius: 8px;
+      margin: 1rem 0;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    .diagram-note {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin: 0.25rem 0 1.5rem;
+    }
+    details.fallback {
+      margin: 1rem 0 2rem;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    details.fallback summary { cursor: pointer; color: var(--accent); margin-bottom: 0.5rem; }
+    pre.fallback-ascii {
+      background: var(--panel);
+      padding: 1rem;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      overflow-x: auto;
+      line-height: 1.4;
+      white-space: pre;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Vault load balancer downtime while Vault nodes stay healthy</h1>
+      <p class="lede">Why <code>hash-vault.koneksi.co.kr</code> can fail even when all Vault cluster members are up — and how that differs from observing IPFS LB stability.</p>
+    </header>
+
+    <h2>How Vault is exposed (no nginx on Vault nodes)</h2>
+    <p><strong>Vault servers</strong> do not run nginx. Each node listens on a <strong>public IP and port</strong> (typically <code>:8200</code>) — clients can talk to Vault <strong>directly</strong> on <code>https://&lt;node-ip&gt;:8200</code> (or HTTP, depending on your listener config).</p>
+    <p>The file <code>hash-vault-lb.conf</code> is <strong>optional</strong>: it runs on a <strong>different host</strong> (e.g. node-5) and only affects traffic that uses the <strong>DNS name</strong> <code>hash-vault.koneksi.co.kr</code>. That machine is nginx-only in front of the three Vault IPs — it is <strong>not</strong> part of the Vault process on the cluster members.</p>
+    <div class="callout">
+      <strong>Two paths.</strong> (1) <strong>Direct</strong>: IP:8200 → Vault only. (2) <strong>Hostname</strong>: browser/CLI to <code>hash-vault.koneksi.co.kr</code> → nginx LB → Vault backends. LB outages hit path (2) only; path (1) can still work if firewalls allow it.
+    </div>
+
+    <h2>Core idea</h2>
+    <p><strong>Vault</strong> runs as a <strong>multi-node cluster</strong> (e.g. three servers, each with Vault on port <code>8200</code>). Any <strong>central load balancer</strong> (nginx on node-5) is a <strong>separate</strong> layer that terminates TLS and proxies to those node IPs — it does not run on the Vault VMs themselves.</p>
+    <div class="callout">
+      <strong>Nodes up ≠ LB path up.</strong> Cluster health only proves Vault processes and raft are fine. Clients using the public hostname hit <strong>nginx first</strong>; if that layer fails, users see downtime even though every Vault node passes <code>vault status</code>.
+    </div>
+
+    <h2>Why the Vault LB can fail alone</h2>
+    <ul>
+      <li><strong>Single point of failure:</strong> One nginx host, one TLS cert lifecycle, one set of firewall rules for the VIP/DNS target.</li>
+      <li><strong>Process / host issues:</strong> nginx reload error, OOM, disk full, kernel patch reboot — Vault nodes unaffected.</li>
+      <li><strong>Passive upstream health:</strong> Standard nginx marks peers bad only after failed requests (<code>max_fails</code> / <code>fail_timeout</code>), not proactive health probes.</li>
+      <li><strong>Vault-specific responses:</strong> Sealed member, standby redirect, leader election, or long operations can produce <code>502</code>/<code>504</code> or client errors that feel like “LB down” while the cluster still considers nodes “up”.</li>
+      <li><strong>Timeouts and keepalives:</strong> <code>proxy_read_timeout</code> and HTTP keepalive to backends can cause brief errors under load or after idle connection reuse.</li>
+    </ul>
+
+    <h2>Vault LB vs IPFS LB (why IPFS may look “always up”)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Topic</th>
+          <th>Vault LB</th>
+          <th>IPFS LB (typical)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Traffic shape</td>
+          <td>API/UI, auth, sometimes long requests; sensitive to leader and seal state.</td>
+          <td>Often more cacheable or retried; different error visibility.</td>
+        </tr>
+        <tr>
+          <td>Observation</td>
+          <td>Every UI/API failure is obvious to operators.</td>
+          <td>May be measured differently or used by fewer interactive clients.</td>
+        </tr>
+        <tr>
+          <td>Hostname / cert</td>
+          <td><code>hash-vault.koneksi.co.kr</code> has its own cert and vhost lifecycle.</td>
+          <td>Different vhost; incidents do not always coincide.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Improvements (if you need higher availability)</h2>
+    <ul>
+      <li><strong>Second LB or VIP:</strong> e.g. keepalived, cloud load balancer, or DNS failover between two nginx instances.</li>
+      <li><strong>Active health checks:</strong> Nginx Plus, or an external checker hitting <code>/v1/sys/health</code> and updating upstream state.</li>
+      <li><strong>Dedicated LB VM</strong> for Vault so it does not compete with heavy OpenResty/IPFS on the same box.</li>
+      <li><strong>Logs:</strong> Correlate incidents with <code>error.log</code> (<code>connect() failed</code>, <code>upstream timed out</code>, <code>no live upstreams</code>).</li>
+    </ul>
+
+    <h2>Traffic flow — today vs target</h2>
+    <p>Diagrams load via Mermaid (needs network for the script, or host this page on HTTPS). Solid lines = main paths; dashed = optional break-glass direct access.</p>
+
+    <h3 style="margin-top:1.5rem;font-size:1rem;color:var(--text);">A) Today: hostname goes through one nginx; Vault nodes have no nginx</h3>
+    <p class="diagram-note">If <strong>node-5</strong> (or whichever host runs <code>hash-vault-lb.conf</code>) is down, path ① fails. Path ② can still work if your security rules allow clients to reach <code>public-ip:8200</code>.</p>
+    <pre class="mermaid">
+flowchart TB
+  subgraph clients["Clients"]
+    U["Browser / CLI / apps"]
+  end
+  subgraph lbhost["LB host e.g. node-5 — SPOF for DNS name"]
+    N["nginx TLS :443 hash-vault.koneksi.co.kr"]
+  end
+  subgraph vault["Vault cluster — no nginx on nodes"]
+    V1["Node 1 :8200"]
+    V2["Node 2 :8200"]
+    V3["Node 3 :8200"]
+  end
+  U -->|"1 HTTPS hostname"| N
+  N -->|"HTTP proxy"| V1
+  N --> V2
+  N --> V3
+  U -.->|"2 direct IP:8200"| V1
+  U -.->|2| V2
+  U -.->|2| V3
+    </pre>
+
+    <h3 style="margin-top:2rem;font-size:1rem;color:var(--text);">B) Target: redundant LBs + same Vault backends</h3>
+    <p class="diagram-note">Clients use <strong>one DNS name</strong> or <strong>VIP</strong>. Health checks send traffic only to healthy LBs. Each LB proxies to the same three Vault IPs on <code>:8200</code>. Vault nodes still do not run nginx.</p>
+    <pre class="mermaid">
+flowchart TB
+  subgraph clients2["Clients"]
+    C["Browser / CLI / apps"]
+  end
+  subgraph edge["Highly available edge"]
+    DNS["DNS / VIP / cloud LB — health routing"]
+    LB1["Load balancer 1"]
+    LB2["Load balancer 2"]
+  end
+  subgraph vault2["Vault cluster — same backends"]
+    W1["Node 1 :8200"]
+    W2["Node 2 :8200"]
+    W3["Node 3 :8200"]
+  end
+  C --> DNS
+  DNS --> LB1
+  DNS --> LB2
+  LB1 --> W1
+  LB1 --> W2
+  LB1 --> W3
+  LB2 --> W1
+  LB2 --> W2
+  LB2 --> W3
+    </pre>
+
+    <h3 style="margin-top:2rem;font-size:1rem;color:var(--text);">C) What happens to traffic when the LB layer fails</h3>
+    <p class="diagram-note"><strong>Vault cluster healthy, nginx LB host unhealthy:</strong> traffic that only uses the DNS name hits a dead or flaky edge — timeouts, TLS errors, or <code>502</code>. Traffic that uses <strong>node public IP and <code>:8200</code></strong> (and is allowed by firewall) bypasses nginx and still reaches Vault.</p>
+    <pre class="mermaid">
+flowchart TB
+  subgraph scenario["LB down — Vault nodes still up"]
+    UC["Clients"]
+    UC -->|"hash-vault hostname :443"| LBD["nginx LB — failing"]
+    LBD --> OUT["Outcome: no useful response"]
+    UC -.->|"direct IP:8200"| VOK1["Vault node 1 OK"]
+    UC -.->|direct| VOK2["Vault node 2 OK"]
+    UC -.->|direct| VOK3["Vault node 3 OK"]
+  end
+    </pre>
+
+    <details class="fallback">
+      <summary>Text-only diagram (offline / no JavaScript)</summary>
+      <pre class="fallback-ascii">TODAY
+=====
+  Clients
+     |----[ HTTPS hash-vault.koneksi.co.kr :443 ]----> nginx (e.g. node-5) ----+----> Vault :8200 node 1
+     |                                              |----> Vault :8200 node 2
+     |                                              +----> Vault :8200 node 3
+     |
+     +----[ optional: https://&lt;public-ip&gt;:8200 ]-------------------------------> Vault nodes directly
+
+
+TARGET (HA)
+===========
+  Clients
+     |
+     v
+  [ DNS / VIP / cloud LB — two+ healthy endpoints ]
+     |------------------+------------------
+     v                  v
+  nginx LB A         nginx LB B   (or managed LBs)
+     |                  |
+     +--------+---------+
+              v
+        Vault :8200  (x3 nodes, no nginx on them)
+
+
+WHEN LB FAILS (Vault still healthy)
+===================================
+  Clients
+     |----[ hash-vault hostname :443 ]----> nginx LB (down) ----> X  timeout / refused / 502
+     |
+     +----[ optional: &lt;public-ip&gt;:8200 ]----> Vault nodes (still OK if firewall allows)
+</pre>
+    </details>
+
+    <h2>Reference config in this repo</h2>
+    <p>Nginx upstream definition: <code>ipfs-idc/node-5/nginx/hash-vault-lb.conf</code></p>
+
+    <footer>
+      <p>Internal technical note — Koneksi infrastructure. Diagrams use <a href="https://mermaid.js.org/" rel="noopener">Mermaid</a> (CDN). To “publish”: serve this file over HTTPS so the script loads; or open locally with internet access.</p>
+    </footer>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: "dark",
+      securityLevel: "loose",
+      themeVariables: {
+        primaryColor: "#1a2332",
+        primaryTextColor: "#e7ecf3",
+        lineColor: "#3d8bfd",
+        secondaryColor: "#2d3a4d",
+        tertiaryColor: "#0f1419"
+      }
+    });
+  </script>
+</body>
+</html>

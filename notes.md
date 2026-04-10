@@ -56,3 +56,34 @@ today:
 - Migrate the data from old Db to new
 - Sync with Aldrick to resolve mongodb issue
 - Plan and make diagram for kubernetes deploymnet in NHN cloud
+
+
+
+======= NHN cluster ======
+
+
+ipfs-1: ubuntu@125.6.39.137
+access: ssh -i nhn-key-pair.pem ubuntu@125.6.39.137
+ipfs-2: ubuntu@133.186.151.67
+access: ssh -i nhn-key-pair.pem ubuntu@133.186.151.67
+ipfs-3: ubuntu@133.186.151.108
+access: ssh -i nhn-key-pair.pem ubuntu@133.186.151.108
+
+metadata-manager-1: ubuntu@180.210.82.9
+metadata-manager-2: ubuntu@133.186.159.168
+metadata-manager-3: ubuntu@125.6.39.129
+
+hdd-server-1: ubuntu@180.210.83.72
+hdd-server-2: ubuntu@180.210.83.30
+hdd-server-3: ubuntu@180.210.83.141
+
+ssd-server-1: ubuntu@133.186.135.101
+ssd-server-2: ubuntu@133.186.135.245
+ssd-server-3: ubuntu@133.186.135.194
+
+
+
+sudo ln -sfn /etc/nginx/sites-available/testbed-ipfs.koneksi.co.kr \
+  /etc/nginx/sites-enabled/testbed-ipfs.koneksi.co.kr
+
+sudo nginx -t && sudo systemctl reload nginx

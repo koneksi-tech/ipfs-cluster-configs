@@ -1,0 +1,40 @@
+#cloud-config
+# Example user-data for a new instance. Replace placeholders and paste into
+# Terraform aws_instance user_data, cloud-init, etc.
+#
+# Do NOT put unseal keys or root tokens here.
+
+package_update: true
+package_upgrade: false
+
+write_files:
+  - path: /root/bootstrap-vault.env
+    permissions: "0600"
+    owner: root:root
+    content: |
+      export VAULT_NODE_ID="vault-replace-me"
+      export VAULT_VERSION="1.16.2"
+      export VAULT_API_ADDR="http://REPLACE_PUBLIC_IP:8200"
+      export VAULT_CLUSTER_ADDR="http://REPLACE_PRIVATE_IP:8201"
+      # Leave empty for the first Raft node; for joiners list existing leaders:
+      export RAFT_RETRY_JOIN="http://VAULT1:8200 http://VAULT2:8200"
+
+  - path: /root/run-bootstrap-vault.sh
+    permissions: "0755"
+    owner: root:root
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      # Optional: fill VAULT_* from cloud metadata (example: AWS public IP)
+      # TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+      # PUB=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4)
+      # export VAULT_API_ADDR="http://${PUB}:8200"
+      source /root/bootstrap-vault.env
+      curl -fsSL -o /tmp/bootstrap-vault-node.sh "https://raw.githubusercontent.com/YOUR_ORG/ipfs-cluster-configs/main/ipfs-idc/scripts/bootstrap-vault-node.sh" \
+        || { echo "Copy bootstrap-vault-node.sh to /tmp manually"; exit 1; }
+      bash /tmp/bootstrap-vault-node.sh
+
+runcmd:
+  - [ bash, -lc, "/root/run-bootstrap-vault.sh" ]
+
+# Alternative: vendor the script in the image or bake with Packer instead of curl from GitHub.

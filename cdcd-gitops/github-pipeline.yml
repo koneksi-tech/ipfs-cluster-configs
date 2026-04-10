@@ -1,0 +1,143 @@
+# Runs on: push to branch `staging`, OR push of a git tag (any name).
+#
+# NCR image path matches the console (example):
+#   docker push 36163004-kr1-registry.container.nhncloud.com/koneksi-tech/koneksi-provenance:<tag>
+#
+# Image tags:
+#   - Git tag push     → only :<git-tag> (same name as refs/tags/*, e.g. v0.0.12-staging)
+#   - Branch staging   → :staging and :staging-<short-sha>
+# The workflow file must exist on the commit you push.
+#
+# Application env is not baked in; use Kubernetes Secrets / ConfigMaps at runtime.
+#
+# Required variables: DOCKER_USERNAME_V2
+# NHN NCR (recommended): DOCKER_REGISTRY, NCR_REGISTRY_NAME, NCR_IMAGE_NAME
+# (Optional): DOCKER_IMAGE_REPOSITORY — full host/reg/image, OR NCR Public URI host/reg (then set NCR_IMAGE_NAME)
+# Secret: DOCKER_ACCESS_TOKEN_V2
+
+name: Docker image (staging)
+
+on:
+  push:
+    branches:
+      - staging
+    tags:
+      - "*"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    env:
+      # Allow config to be stored as either repository Variables or Secrets.
+      # Use only V2 credentials for NCR (no fallback).
+      DOCKER_USERNAME_V2: ${{ vars.DOCKER_USERNAME_V2 || secrets.DOCKER_USERNAME_V2 }}
+      DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY || secrets.DOCKER_REGISTRY }}
+      NCR_REGISTRY_NAME: ${{ vars.NCR_REGISTRY_NAME || secrets.NCR_REGISTRY_NAME }}
+      NCR_IMAGE_NAME: ${{ vars.NCR_IMAGE_NAME || secrets.NCR_IMAGE_NAME }}
+      DOCKER_IMAGE_REPOSITORY: ${{ vars.DOCKER_IMAGE_REPOSITORY || secrets.DOCKER_IMAGE_REPOSITORY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve image name, registry host, and tags
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "${DOCKER_USERNAME_V2:-}" ]; then
+            echo "::error::Missing DOCKER_USERNAME_V2 (set as repo Variable or Secret)"
+            exit 1
+          fi
+
+          # Compose NCR repository as: host/<registry>/<image>.
+          # DOCKER_IMAGE_REPOSITORY may be NCR "Public URI" (host/<registry> only); then NCR_IMAGE_NAME is appended.
+          if [ -n "${DOCKER_IMAGE_REPOSITORY:-}" ]; then
+            REPO="$DOCKER_IMAGE_REPOSITORY"
+            REMAINDER="${REPO#*/}"
+            if [[ "$REMAINDER" != *"/"* ]]; then
+              if [ -z "${NCR_IMAGE_NAME:-}" ]; then
+                echo "::error::DOCKER_IMAGE_REPOSITORY is only host/<registry>. Set NCR_IMAGE_NAME (e.g. koneksi-provenance) or use full path host/<registry>/<image>"
+                exit 1
+              fi
+              REPO="${REPO}/${NCR_IMAGE_NAME}"
+            fi
+          else
+            if [ -z "${DOCKER_REGISTRY:-}" ]; then
+              echo "::error::Missing DOCKER_REGISTRY (e.g. 36163004-kr1-registry.container.nhncloud.com)"
+              exit 1
+            fi
+            if [ -z "${NCR_REGISTRY_NAME:-}" ]; then
+              echo "::error::Missing NCR_REGISTRY_NAME (e.g. koneksi-tech)"
+              exit 1
+            fi
+            if [ -z "${NCR_IMAGE_NAME:-}" ]; then
+              echo "::error::Missing NCR_IMAGE_NAME (e.g. koneksi-provenance)"
+              exit 1
+            fi
+            # In case DOCKER_REGISTRY includes a path, keep only the host.
+            REG_HOST="${DOCKER_REGISTRY%%/*}"
+            REPO="${REG_HOST}/${NCR_REGISTRY_NAME}/${NCR_IMAGE_NAME}"
+          fi
+
+          # Guardrail: NCR requires at least host/<registry>/<image>.
+          REMAINDER="${REPO#*/}"
+          if [[ "$REMAINDER" != *"/"* ]]; then
+            echo "::error::Invalid DOCKER_IMAGE_REPOSITORY '${REPO}'. Expected host/<registry>/<image>."
+            exit 1
+          fi
+
+          # Derive registry host from the repository path (host/namespace/name).
+          REGISTRY_HOST="${REPO%%/*}"
+          SHORT="$(echo "${GITHUB_SHA}" | cut -c1-7)"
+
+          echo "repository=${REPO}" >> "$GITHUB_OUTPUT"
+          echo "registry_host=${REGISTRY_HOST}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ steps.image.outputs.registry_host }}
+          username: ${{ env.DOCKER_USERNAME_V2 }}
+          password: ${{ secrets.DOCKER_ACCESS_TOKEN_V2 }}
+
+      - name: Compose registry tags
+        id: push_tags
+        run: |
+          REPO="${{ steps.image.outputs.repository }}"
+          SHORT="${{ steps.image.outputs.short_sha }}"
+          {
+            echo "tags<<EOF"
+            if [ "${{ github.ref_type }}" = "tag" ]; then
+              # Image tag = git tag name (e.g. v0.0.12-staging)
+              echo "${REPO}:${{ github.ref_name }}"
+            else
+              echo "${REPO}:staging"
+              echo "${REPO}:staging-${SHORT}"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: NCR push reference (same as console)
+        run: |
+          REPO="${{ steps.image.outputs.repository }}"
+          SHORT="${{ steps.image.outputs.short_sha }}"
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "NCR (same as console): docker push ${REPO}:${{ github.ref_name }}"
+          else
+            echo "NCR: docker push ${REPO}:staging"
+            echo "NCR: docker push ${REPO}:staging-${SHORT}"
+          fi
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.push_tags.outputs.tags }}

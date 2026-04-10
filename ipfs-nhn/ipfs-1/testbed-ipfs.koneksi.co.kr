@@ -12,6 +12,14 @@ map $http_environment $bandwidth_backend {
     default    "";
 }
 
+# Reflect Origin only when allowlisted (browser CORS). Empty = no Access-Control-Allow-Origin.
+map $http_origin $cors_origin {
+    default "";
+    "~^http://localhost:[0-9]+$" $http_origin;
+    "~^http://127\.0\.0\.1:[0-9]+$" $http_origin;
+    "~^https://([a-z0-9.-]+\.)*koneksi\.co\.kr$" $http_origin;
+}
+
 server {
     listen 80;
     listen [::]:80;
@@ -42,15 +50,26 @@ server {
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers off;
 
-    client_max_body_size 0;
+    # Default nginx is 1m → 413 on uploads. 0 = unlimited; 10G is explicit if you prefer a cap.
+    client_max_body_size 10G;
     proxy_request_buffering off;
     proxy_buffering off;
     proxy_read_timeout 12h;
     proxy_send_timeout 12h;
 
+    # CORS preflight: answer OPTIONS here. If OPTIONS reaches Kubo/cluster, they often return 405.
+    if ($request_method = OPTIONS) {
+        return 418;
+    }
+    error_page 418 = @cors_options_ok;
+
     location /ipfs/ {
         auth_request /auth_check;
         log_by_lua_file /etc/nginx/lua/bandwidth_hook.lua;
+
+        add_header Access-Control-Allow-Origin $cors_origin always;
+        add_header Access-Control-Allow-Credentials "true" always;
+        add_header Access-Control-Expose-Headers "Accept-Ranges, Content-Length, Content-Range, ETag" always;
 
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
@@ -62,6 +81,10 @@ server {
         auth_request /auth_check;
         log_by_lua_file /etc/nginx/lua/bandwidth_hook.lua;
 
+        add_header Access-Control-Allow-Origin $cors_origin always;
+        add_header Access-Control-Allow-Credentials "true" always;
+        add_header Access-Control-Expose-Headers "Accept-Ranges, Content-Length, Content-Range, ETag" always;
+
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -69,6 +92,8 @@ server {
     }
 
     location = /api/v0/add {
+        client_max_body_size 10G;
+
         satisfy any;
         allow 127.0.0.1;
         allow ::1;
@@ -79,6 +104,9 @@ server {
         allow 158.247.247.112;
         auth_request /auth_check;
         deny all;
+
+        add_header Access-Control-Allow-Origin $cors_origin always;
+        add_header Access-Control-Allow-Credentials "true" always;
 
         proxy_pass http://127.0.0.1:9095/api/v0/add?chunker=size-1048576&$args;
         proxy_set_header Host $host;
@@ -87,6 +115,8 @@ server {
     }
 
     location = /kubo/api/v0/add {
+        client_max_body_size 10G;
+
         satisfy any;
         allow 127.0.0.1;
         allow ::1;
@@ -98,6 +128,9 @@ server {
         auth_request /auth_check;
         deny all;
 
+        add_header Access-Control-Allow-Origin $cors_origin always;
+        add_header Access-Control-Allow-Credentials "true" always;
+
         proxy_pass http://127.0.0.1:5001/api/v0/add?chunker=size-1048576&$args;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -105,6 +138,8 @@ server {
     }
 
     location /api/v0/ {
+        client_max_body_size 10G;
+
         allow 127.0.0.1;
         allow ::1;
         allow 192.168.0.0/24;
@@ -121,6 +156,8 @@ server {
     }
 
     location /kubo/api/v0/ {
+        client_max_body_size 10G;
+
         allow 127.0.0.1;
         allow ::1;
         allow 192.168.0.0/24;
@@ -138,6 +175,9 @@ server {
     }
 
     location /cluster/ {
+        client_max_body_size 10G;
+
+        satisfy any;
         allow 127.0.0.1;
         allow ::1;
         allow 192.168.0.0/24;
@@ -145,7 +185,11 @@ server {
         allow 133.186.151.67;
         allow 133.186.151.108;
         allow 158.247.247.112;
+        auth_request /auth_check;
         deny all;
+
+        add_header Access-Control-Allow-Origin $cors_origin always;
+        add_header Access-Control-Allow-Credentials "true" always;
 
         rewrite ^/cluster/(.*)$ /$1 break;
         proxy_pass http://127.0.0.1:9094;
@@ -179,5 +223,18 @@ server {
     location = / {
         default_type text/plain;
         return 200 "testbed-ipfs.koneksi.co.kr\n";
+    }
+
+    # Handles server-wide OPTIONS (see return 418 above). Kubo/cluster reject OPTIONS on /api/v0/add → 405 if proxied.
+    location @cors_options_ok {
+        internal;
+        add_header Access-Control-Allow-Origin $cors_origin always;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, HEAD, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Authorization, Content-Type, Environment, Client-ID, Client-Secret, X-Requested-With, Accept, Range, If-Range" always;
+        add_header Access-Control-Allow-Credentials "true" always;
+        add_header Access-Control-Max-Age 86400 always;
+        add_header Content-Length 0 always;
+        add_header Content-Type text/plain always;
+        return 204;
     }
 }
