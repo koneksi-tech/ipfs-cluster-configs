@@ -1,0 +1,13 @@
+[
+  {
+    "uid": "afl5hnw8axhc0b",
+    "name": "Discord Koneksi",
+    "type": "discord",
+    "settings": {
+      "message": "{{ range .Alerts }}**[{{ .Status | toUpper }}]** {{ .Annotations.summary }}\n{{ .Annotations.description }}\n{{ end }}",
+      "url": "[REDACTED]"
+    },
+    "disableResolveMessage": false,
+    "provenance": "api"
+  }
+]

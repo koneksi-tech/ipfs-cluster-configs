@@ -1,0 +1,70 @@
+# ── Sensitive server / credential files ────────────────────────────────────
+notes.md
+cdcd-gitops/notes.md
+ipfs-nhn/upload-auth-notes.md
+vault/vault-notes.md
+
+# ── Internal HTML reports (contain server IPs) ───────────────────────────────
+*.html
+Readiness\ Report*.xlsx
+
+# ── Docs with credentials / server details ───────────────────────────────────
+docs/ssh-access.md
+docs/database-backup-restore.md
+
+# ── Vault docs (contain IPs, tokens, recovery procedures) ────────────────────
+vault/vault-migration.md
+vault/vault-monitoring-summary.md
+vault/vault-snapshot-recovery.md
+vault/vault-update.md
+
+# ── Monitoring state (contains server IPs and dashboard details) ─────────────
+monitoring/grafana-state.md
+
+# ── Environment files ───────────────────────────────────────────────────────
+.env
+.env.*
+*.env
+!*.env.example
+!*.env.template
+
+# ── TLS certificates & private keys ─────────────────────────────────────────
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.csr
+certs/
+ssl/
+
+# ── SSH keys ─────────────────────────────────────────────────────────────────
+*.pub
+id_rsa
+id_ed25519
+id_ecdsa
+nhn-key-pair*
+
+# ── Temp password files (created during SSH sessions) ────────────────────────
+/tmp/p*
+
+# ── Terraform state (contains secrets) ───────────────────────────────────────
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform/
+.terraform.lock.hcl
+
+# ── Claude Code ───────────────────────────────────────────────────────────────
+CLAUDE.md
+.claude/
+
+# ── Local OS / editor noise ───────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/

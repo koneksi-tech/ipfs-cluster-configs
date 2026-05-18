@@ -1,0 +1,12 @@
+{
+  "receiver": "Discord Koneksi",
+  "group_by": [
+    "grafana_folder",
+    "alertname",
+    "instance"
+  ],
+  "group_wait": "30s",
+  "group_interval": "5m",
+  "repeat_interval": "1y",
+  "provenance": "api"
+}

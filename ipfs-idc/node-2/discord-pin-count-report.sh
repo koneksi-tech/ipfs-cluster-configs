@@ -25,7 +25,7 @@ set -euo pipefail
 # Paste Discord incoming webhook URL between the single quotes (no export needed).
 # If DISCORD_WEBHOOK_URL is set in the environment, it wins over this default.
 # ---------------------------------------------------------------------------
-DISCORD_WEBHOOK_DEFAULT='https://discord.com/api/webhooks/1440940414692757514/78vOlNIDUHjjlzVbUcR0Xy8e-4K1FoltTZTOIrz2CETQm3F5iwcmjDSSqjFKGOWuFgx1'
+DISCORD_WEBHOOK_DEFAULT='https://discord.com/api/webhooks/1500690813439709304/OZaTtp1X2e88iZSnG8gvnkKHHs7Yya_FCxqG6zH-pWgNsQ46bOABTI56dsZmtKK-ezlu'
 DISCORD_WEBHOOK_URL="${DISCORD_WEBHOOK_URL:-$DISCORD_WEBHOOK_DEFAULT}"
 DISCORD_WEBHOOK_URL="$(printf '%s' "$DISCORD_WEBHOOK_URL" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 

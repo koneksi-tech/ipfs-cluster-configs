@@ -1,0 +1,14 @@
+[Unit]
+Description=IPFS daemon
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Environment=IPFS_PATH=/data/ipfs
+ExecStart=/usr/local/bin/ipfs daemon
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

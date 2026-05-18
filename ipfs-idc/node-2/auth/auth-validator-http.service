@@ -1,0 +1,15 @@
+[Unit]
+Description=Auth validator HTTP (for nginx auth_request, same as Server 1)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Environment=AUTH_VALIDATOR_PORT=8888
+Environment=AUTH_VALIDATOR_SCRIPT=/usr/local/bin/auth-validator.py
+ExecStart=/usr/bin/python3 /usr/local/bin/auth-validator-http.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

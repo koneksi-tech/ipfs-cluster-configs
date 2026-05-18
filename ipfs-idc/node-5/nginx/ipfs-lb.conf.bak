@@ -101,16 +101,15 @@ server {
             local status = tonumber(ngx.var.upstream_status) or tonumber(ngx.var.status) or 0
 
             -- ── Discord alert for failed IPFS requests ──────────────────────
-            -- Fires for GET/POST only — OPTIONS (CORS preflight, 204) is excluded.
+            -- Fires for any non-200/206 response (4xx and 5xx).
             -- Dedup to prevent spam:
             --   5xx → keyed by upstream+status, 60s TTL  (1 alert/min per dead node)
             --   4xx → keyed by client_ip+status, 120s TTL (1 alert/2min per bad client)
-            local method    = ngx.var.request_method or "?"
-            if status > 0 and status ~= 200 and status ~= 206
-               and method ~= "OPTIONS" then
+            if status > 0 and status ~= 200 and status ~= 206 then
                 local dedup     = ngx.shared.ipfs_alert_dedup
                 local client_ip = ngx.var.remote_addr or "?"
                 local upstream  = ngx.var.upstream_addr or "?"
+                local method    = ngx.var.request_method or "?"
                 local uri       = ngx.var.uri or "?"
                 local env       = ngx.var.http_environment or ""
 

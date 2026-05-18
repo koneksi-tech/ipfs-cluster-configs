@@ -1,0 +1,16 @@
+[Unit]
+Description=IPFS Cluster Service
+After=network.target ipfs.service
+Requires=ipfs.service
+
+[Service]
+Type=simple
+User=ipfs
+Environment=IPFS_CLUSTER_PATH=/home/ipfs/.ipfs-cluster
+Environment=HOME=/home/ipfs
+ExecStart=/usr/local/bin/ipfs-cluster-service daemon
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

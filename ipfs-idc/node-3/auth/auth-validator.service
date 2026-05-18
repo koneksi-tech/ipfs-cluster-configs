@@ -1,0 +1,13 @@
+[Unit]
+Description=Auth Validator Service
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+ExecStart=/usr/bin/python3 /usr/local/bin/auth-validator-fastcgi.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

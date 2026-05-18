@@ -1,0 +1,1186 @@
+[
+  {
+    "id": 2,
+    "uid": "afl5jzgbmy874f",
+    "orgID": 1,
+    "folderUID": "cfl22xkwiht6oe",
+    "ruleGroup": "critical-alerts",
+    "title": "Node Down",
+    "condition": "C",
+    "data": [
+      {
+        "refId": "A",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "PBFA97CFB590B2093",
+        "model": {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "up{job=\"ipfs-cluster-nodes\"}",
+          "instant": true,
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "A"
+        }
+      },
+      {
+        "refId": "C",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "-100",
+        "model": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [
+                  1
+                ],
+                "type": "lt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": [
+                  "A"
+                ]
+              },
+              "reducer": {
+                "params": [],
+                "type": "last"
+              },
+              "type": "query"
+            }
+          ],
+          "datasource": {
+            "type": "__expr__",
+            "uid": "-100"
+          },
+          "expression": "A",
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "C",
+          "type": "threshold"
+        }
+      }
+    ],
+    "updated": "2026-05-05T23:23:17+09:00",
+    "noDataState": "NoData",
+    "execErrState": "Error",
+    "for": "2m",
+    "keep_firing_for": "0s",
+    "annotations": {
+      "description": "Node {{ $labels.instance }} is unreachable. Prometheus scrape failed. Check the server immediately.",
+      "summary": "\ud83d\udd34 Node Down \u2014 {{ $labels.instance }}"
+    },
+    "labels": {
+      "severity": "critical"
+    },
+    "provenance": "api",
+    "isPaused": false,
+    "notification_settings": null,
+    "record": null
+  },
+  {
+    "id": 3,
+    "uid": "ffl5jzhjw5gqof",
+    "orgID": 1,
+    "folderUID": "cfl22xkwiht6oe",
+    "ruleGroup": "critical-alerts",
+    "title": "Disk Critical \u2014 NHN /mnt/data > 90%",
+    "condition": "C",
+    "data": [
+      {
+        "refId": "A",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "PBFA97CFB590B2093",
+        "model": {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"133\\.186\\..*\",mountpoint=\"/mnt/data\"} / node_filesystem_size_bytes{instance=~\"133\\.186\\..*\",mountpoint=\"/mnt/data\"}) * 100",
+          "instant": true,
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "A"
+        }
+      },
+      {
+        "refId": "C",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "-100",
+        "model": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [
+                  90
+                ],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": [
+                  "A"
+                ]
+              },
+              "reducer": {
+                "params": [],
+                "type": "last"
+              },
+              "type": "query"
+            }
+          ],
+          "datasource": {
+            "type": "__expr__",
+            "uid": "-100"
+          },
+          "expression": "A",
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "C",
+          "type": "threshold"
+        }
+      }
+    ],
+    "updated": "2026-05-05T23:31:59+09:00",
+    "noDataState": "OK",
+    "execErrState": "Error",
+    "for": "5m",
+    "keep_firing_for": "0s",
+    "annotations": {
+      "description": "NHN /mnt/data on {{ $labels.instance }} is at {{ printf \"%.1f\" $values.A.Value }}% \u2014 above 90%. IPFS will stop writing soon.",
+      "summary": "\ud83d\udd34 Disk Critical on {{ $labels.instance }}"
+    },
+    "labels": {
+      "severity": "critical"
+    },
+    "provenance": "api",
+    "isPaused": false,
+    "notification_settings": null,
+    "record": null
+  },
+  {
+    "id": 4,
+    "uid": "afl5jzirdvthce",
+    "orgID": 1,
+    "folderUID": "cfl22xkwiht6oe",
+    "ruleGroup": "critical-alerts",
+    "title": "Disk Critical \u2014 IDC /data > 90%",
+    "condition": "C",
+    "data": [
+      {
+        "refId": "A",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "PBFA97CFB590B2093",
+        "model": {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"160\\.202\\.162\\.17.*|211\\.238\\.12\\.8.*|218\\.38\\.136\\.3[34].*\",mountpoint=\"/data\"} / node_filesystem_size_bytes{instance=~\"160\\.202\\.162\\.17.*|211\\.238\\.12\\.8.*|218\\.38\\.136\\.3[34].*\",mountpoint=\"/data\"}) * 100",
+          "instant": true,
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "A"
+        }
+      },
+      {
+        "refId": "C",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "-100",
+        "model": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [
+                  90
+                ],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": [
+                  "A"
+                ]
+              },
+              "reducer": {
+                "params": [],
+                "type": "last"
+              },
+              "type": "query"
+            }
+          ],
+          "datasource": {
+            "type": "__expr__",
+            "uid": "-100"
+          },
+          "expression": "A",
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "C",
+          "type": "threshold"
+        }
+      }
+    ],
+    "updated": "2026-05-05T23:32:00+09:00",
+    "noDataState": "OK",
+    "execErrState": "Error",
+    "for": "5m",
+    "keep_firing_for": "0s",
+    "annotations": {
+      "description": "IDC /data on {{ $labels.instance }} is at {{ printf \"%.1f\" $values.A.Value }}% \u2014 above 90%. IPFS will stop writing soon.",
+      "summary": "\ud83d\udd34 Disk Critical on {{ $labels.instance }}"
+    },
+    "labels": {
+      "severity": "critical"
+    },
+    "provenance": "api",
+    "isPaused": false,
+    "notification_settings": null,
+    "record": null
+  },
+  {
+    "id": 5,
+    "uid": "cfl5jzjye4vswf",
+    "orgID": 1,
+    "folderUID": "cfl22xkwiht6oe",
+    "ruleGroup": "critical-alerts",
+    "title": "Memory Critical > 90%",
+    "condition": "C",
+    "data": [
+      {
+        "refId": "A",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "PBFA97CFB590B2093",
+        "model": {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "(1 - node_memory_MemAvailable_bytes{instance=~\".*\",job=\"ipfs-cluster-nodes\"} / node_memory_MemTotal_bytes{instance=~\".*\",job=\"ipfs-cluster-nodes\"}) * 100",
+          "instant": true,
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "A"
+        }
+      },
+      {
+        "refId": "C",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "-100",
+        "model": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [
+                  90
+                ],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": [
+                  "A"
+                ]
+              },
+              "reducer": {
+                "params": [],
+                "type": "last"
+              },
+              "type": "query"
+            }
+          ],
+          "datasource": {
+            "type": "__expr__",
+            "uid": "-100"
+          },
+          "expression": "A",
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "C",
+          "type": "threshold"
+        }
+      }
+    ],
+    "updated": "2026-05-05T23:32:00+09:00",
+    "noDataState": "OK",
+    "execErrState": "Error",
+    "for": "5m",
+    "keep_firing_for": "0s",
+    "annotations": {
+      "description": "Memory on {{ $labels.instance }} is at {{ printf \"%.1f\" $values.A.Value }}%. OOM killer may terminate IPFS daemon. SSH and check: ps aux --sort=-%mem | head -10",
+      "summary": "\ud83d\udd34 Memory Critical on {{ $labels.instance }}"
+    },
+    "labels": {
+      "severity": "critical"
+    },
+    "provenance": "api",
+    "isPaused": false,
+    "notification_settings": null,
+    "record": null
+  },
+  {
+    "id": 6,
+    "uid": "bfl5jzl5jdqtcd",
+    "orgID": 1,
+    "folderUID": "cfl22xkwiht6oe",
+    "ruleGroup": "critical-alerts",
+    "title": "CPU Critical > 90% (10min)",
+    "condition": "C",
+    "data": [
+      {
+        "refId": "A",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "PBFA97CFB590B2093",
+        "model": {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "100 - (avg by (instance) (irate(node_cpu_seconds_total{mode=\"idle\",instance=~\".*\",job=\"ipfs-cluster-nodes\"}[5m])) * 100)",
+          "instant": true,
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "A"
+        }
+      },
+      {
+        "refId": "C",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "-100",
+        "model": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [
+                  90
+                ],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": [
+                  "A"
+                ]
+              },
+              "reducer": {
+                "params": [],
+                "type": "last"
+              },
+              "type": "query"
+            }
+          ],
+          "datasource": {
+            "type": "__expr__",
+            "uid": "-100"
+          },
+          "expression": "A",
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "C",
+          "type": "threshold"
+        }
+      }
+    ],
+    "updated": "2026-05-05T23:32:01+09:00",
+    "noDataState": "OK",
+    "execErrState": "Error",
+    "for": "10m",
+    "keep_firing_for": "0s",
+    "annotations": {
+      "description": "CPU on {{ $labels.instance }} has been above 90% for 10 minutes (current: {{ printf \"%.1f\" $values.A.Value }}%). SSH and check top process: ps aux --sort=-%cpu | head -10",
+      "summary": "\ud83d\udd34 CPU Critical on {{ $labels.instance }}"
+    },
+    "labels": {
+      "severity": "critical"
+    },
+    "provenance": "api",
+    "isPaused": false,
+    "notification_settings": null,
+    "record": null
+  },
+  {
+    "id": 1,
+    "uid": "afl5hpfqvot1ca",
+    "orgID": 1,
+    "folderUID": "cfl22xkwiht6oe",
+    "ruleGroup": "storage-alerts",
+    "title": "NHN Storage /mnt/data > 80%",
+    "condition": "C",
+    "data": [
+      {
+        "refId": "A",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "PBFA97CFB590B2093",
+        "model": {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"133\\.186\\..*\", mountpoint=\"/mnt/data\"} / node_filesystem_size_bytes{instance=~\"133\\.186\\..*\", mountpoint=\"/mnt/data\"}) * 100",
+          "instant": true,
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "A"
+        }
+      },
+      {
+        "refId": "C",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "-100",
+        "model": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [
+                  80
+                ],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": [
+                  "A"
+                ]
+              },
+              "reducer": {
+                "params": [],
+                "type": "last"
+              },
+              "type": "query"
+            }
+          ],
+          "datasource": {
+            "type": "__expr__",
+            "uid": "-100"
+          },
+          "expression": "A",
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "C",
+          "type": "threshold"
+        }
+      }
+    ],
+    "updated": "2026-05-05T23:32:01+09:00",
+    "noDataState": "OK",
+    "execErrState": "Error",
+    "for": "5m",
+    "keep_firing_for": "0s",
+    "annotations": {
+      "description": "Disk /mnt/data on {{ $labels.instance }} is at {{ printf \"%.1f\" $values.A.Value }}% \u2014 threshold is 80%.",
+      "summary": "NHN Storage High \u2014 {{ $labels.instance }}"
+    },
+    "labels": {
+      "cluster": "nhn",
+      "severity": "warning"
+    },
+    "provenance": "api",
+    "isPaused": false,
+    "notification_settings": null,
+    "record": null
+  },
+  {
+    "id": 7,
+    "uid": "cfl5jzmd3lzwgc",
+    "orgID": 1,
+    "folderUID": "cfl22xkwiht6oe",
+    "ruleGroup": "warning-alerts",
+    "title": "Disk Warning \u2014 IDC /data > 80%",
+    "condition": "C",
+    "data": [
+      {
+        "refId": "A",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "PBFA97CFB590B2093",
+        "model": {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"160\\.202\\.162\\.17.*|211\\.238\\.12\\.8.*|218\\.38\\.136\\.3[34].*\",mountpoint=\"/data\"} / node_filesystem_size_bytes{instance=~\"160\\.202\\.162\\.17.*|211\\.238\\.12\\.8.*|218\\.38\\.136\\.3[34].*\",mountpoint=\"/data\"}) * 100",
+          "instant": true,
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "A"
+        }
+      },
+      {
+        "refId": "C",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "-100",
+        "model": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [
+                  80
+                ],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": [
+                  "A"
+                ]
+              },
+              "reducer": {
+                "params": [],
+                "type": "last"
+              },
+              "type": "query"
+            }
+          ],
+          "datasource": {
+            "type": "__expr__",
+            "uid": "-100"
+          },
+          "expression": "A",
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "C",
+          "type": "threshold"
+        }
+      }
+    ],
+    "updated": "2026-05-05T23:32:02+09:00",
+    "noDataState": "OK",
+    "execErrState": "Error",
+    "for": "5m",
+    "keep_firing_for": "0s",
+    "annotations": {
+      "description": "IDC /data on {{ $labels.instance }} is at {{ printf \"%.1f\" $values.A.Value }}% \u2014 above 80%.",
+      "summary": "\u26a0\ufe0f Disk Warning on {{ $labels.instance }}"
+    },
+    "labels": {
+      "severity": "warning"
+    },
+    "provenance": "api",
+    "isPaused": false,
+    "notification_settings": null,
+    "record": null
+  },
+  {
+    "id": 8,
+    "uid": "efl5jznkvby0wb",
+    "orgID": 1,
+    "folderUID": "cfl22xkwiht6oe",
+    "ruleGroup": "warning-alerts",
+    "title": "CPU Warning > 75% (15min)",
+    "condition": "C",
+    "data": [
+      {
+        "refId": "A",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "PBFA97CFB590B2093",
+        "model": {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "100 - (avg by (instance) (irate(node_cpu_seconds_total{mode=\"idle\",instance=~\".*\",job=\"ipfs-cluster-nodes\"}[5m])) * 100)",
+          "instant": true,
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "A"
+        }
+      },
+      {
+        "refId": "C",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "-100",
+        "model": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [
+                  75
+                ],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": [
+                  "A"
+                ]
+              },
+              "reducer": {
+                "params": [],
+                "type": "last"
+              },
+              "type": "query"
+            }
+          ],
+          "datasource": {
+            "type": "__expr__",
+            "uid": "-100"
+          },
+          "expression": "A",
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "C",
+          "type": "threshold"
+        }
+      }
+    ],
+    "updated": "2026-05-05T23:32:03+09:00",
+    "noDataState": "OK",
+    "execErrState": "Error",
+    "for": "15m",
+    "keep_firing_for": "0s",
+    "annotations": {
+      "description": "CPU on {{ $labels.instance }} has been above 75% for 15 minutes (current: {{ printf \"%.1f\" $values.A.Value }}%). SSH and check: ps aux --sort=-%cpu | head -10",
+      "summary": "\u26a0\ufe0f High CPU on {{ $labels.instance }}"
+    },
+    "labels": {
+      "severity": "warning"
+    },
+    "provenance": "api",
+    "isPaused": false,
+    "notification_settings": null,
+    "record": null
+  },
+  {
+    "id": 9,
+    "uid": "ffl5jzotw02dcf",
+    "orgID": 1,
+    "folderUID": "cfl22xkwiht6oe",
+    "ruleGroup": "warning-alerts",
+    "title": "Memory Warning > 80%",
+    "condition": "C",
+    "data": [
+      {
+        "refId": "A",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "PBFA97CFB590B2093",
+        "model": {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "(1 - node_memory_MemAvailable_bytes{instance=~\".*\",job=\"ipfs-cluster-nodes\"} / node_memory_MemTotal_bytes{instance=~\".*\",job=\"ipfs-cluster-nodes\"}) * 100",
+          "instant": true,
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "A"
+        }
+      },
+      {
+        "refId": "C",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "-100",
+        "model": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [
+                  80
+                ],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": [
+                  "A"
+                ]
+              },
+              "reducer": {
+                "params": [],
+                "type": "last"
+              },
+              "type": "query"
+            }
+          ],
+          "datasource": {
+            "type": "__expr__",
+            "uid": "-100"
+          },
+          "expression": "A",
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "C",
+          "type": "threshold"
+        }
+      }
+    ],
+    "updated": "2026-05-05T23:32:03+09:00",
+    "noDataState": "OK",
+    "execErrState": "Error",
+    "for": "5m",
+    "keep_firing_for": "0s",
+    "annotations": {
+      "description": "Memory on {{ $labels.instance }} is at {{ printf \"%.1f\" $values.A.Value }}%. SSH and check: ps aux --sort=-%mem | head -10",
+      "summary": "\u26a0\ufe0f High Memory on {{ $labels.instance }}"
+    },
+    "labels": {
+      "severity": "warning"
+    },
+    "provenance": "api",
+    "isPaused": false,
+    "notification_settings": null,
+    "record": null
+  },
+  {
+    "id": 10,
+    "uid": "efl5jzq1g8bggd",
+    "orgID": 1,
+    "folderUID": "cfl22xkwiht6oe",
+    "ruleGroup": "warning-alerts",
+    "title": "Node Rebooted",
+    "condition": "C",
+    "data": [
+      {
+        "refId": "A",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "PBFA97CFB590B2093",
+        "model": {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "(time() - node_boot_time_seconds{instance=~\".*\",job=\"ipfs-cluster-nodes\"}) < 600",
+          "instant": true,
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "A"
+        }
+      },
+      {
+        "refId": "C",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "-100",
+        "model": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [
+                  0
+                ],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": [
+                  "A"
+                ]
+              },
+              "reducer": {
+                "params": [],
+                "type": "last"
+              },
+              "type": "query"
+            }
+          ],
+          "datasource": {
+            "type": "__expr__",
+            "uid": "-100"
+          },
+          "expression": "A",
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "C",
+          "type": "threshold"
+        }
+      }
+    ],
+    "updated": "2026-05-05T23:32:04+09:00",
+    "noDataState": "OK",
+    "execErrState": "Error",
+    "for": "0s",
+    "keep_firing_for": "0s",
+    "annotations": {
+      "description": "Node {{ $labels.instance }} has rebooted (uptime < 10 minutes). Verify IPFS and cluster services are back up: systemctl status ipfs-cluster-service kubo",
+      "summary": "\u26a0\ufe0f Node Rebooted \u2014 {{ $labels.instance }}"
+    },
+    "labels": {
+      "severity": "warning"
+    },
+    "provenance": "api",
+    "isPaused": false,
+    "notification_settings": null,
+    "record": null
+  },
+  {
+    "id": 11,
+    "uid": "dfl5jzr90gkjkb",
+    "orgID": 1,
+    "folderUID": "cfl22xkwiht6oe",
+    "ruleGroup": "warning-alerts",
+    "title": "High System Load",
+    "condition": "C",
+    "data": [
+      {
+        "refId": "A",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "PBFA97CFB590B2093",
+        "model": {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "node_load1{instance=~\".*\",job=\"ipfs-cluster-nodes\"} / on(instance) count without(cpu,mode) (node_cpu_seconds_total{mode=\"idle\",instance=~\".*\",job=\"ipfs-cluster-nodes\"})",
+          "instant": true,
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "A"
+        }
+      },
+      {
+        "refId": "C",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "-100",
+        "model": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [
+                  1
+                ],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": [
+                  "A"
+                ]
+              },
+              "reducer": {
+                "params": [],
+                "type": "last"
+              },
+              "type": "query"
+            }
+          ],
+          "datasource": {
+            "type": "__expr__",
+            "uid": "-100"
+          },
+          "expression": "A",
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "C",
+          "type": "threshold"
+        }
+      }
+    ],
+    "updated": "2026-05-05T23:32:05+09:00",
+    "noDataState": "OK",
+    "execErrState": "Error",
+    "for": "10m",
+    "keep_firing_for": "0s",
+    "annotations": {
+      "description": "1-minute load average on {{ $labels.instance }} is {{ printf \"%.2f\" $values.A.Value }} \u2014 exceeds CPU count. May indicate I/O bottleneck. Check: top -b -n1 | head -20",
+      "summary": "\u26a0\ufe0f High System Load on {{ $labels.instance }}"
+    },
+    "labels": {
+      "severity": "warning"
+    },
+    "provenance": "api",
+    "isPaused": false,
+    "notification_settings": null,
+    "record": null
+  },
+  {
+    "id": 12,
+    "uid": "cfl5jzshw4w74a",
+    "orgID": 1,
+    "folderUID": "cfl22xkwiht6oe",
+    "ruleGroup": "warning-alerts",
+    "title": "High File Descriptors > 80%",
+    "condition": "C",
+    "data": [
+      {
+        "refId": "A",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "PBFA97CFB590B2093",
+        "model": {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "node_filefd_allocated{instance=~\".*\",job=\"ipfs-cluster-nodes\"} / node_filefd_maximum{instance=~\".*\",job=\"ipfs-cluster-nodes\"} * 100",
+          "instant": true,
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "A"
+        }
+      },
+      {
+        "refId": "C",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "-100",
+        "model": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [
+                  80
+                ],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": [
+                  "A"
+                ]
+              },
+              "reducer": {
+                "params": [],
+                "type": "last"
+              },
+              "type": "query"
+            }
+          ],
+          "datasource": {
+            "type": "__expr__",
+            "uid": "-100"
+          },
+          "expression": "A",
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "C",
+          "type": "threshold"
+        }
+      }
+    ],
+    "updated": "2026-05-05T23:32:05+09:00",
+    "noDataState": "OK",
+    "execErrState": "Error",
+    "for": "10m",
+    "keep_firing_for": "0s",
+    "annotations": {
+      "description": "Open file descriptors on {{ $labels.instance }} are at {{ printf \"%.1f\" $values.A.Value }}% of the system limit. IPFS opens many files \u2014 may silently fail when exhausted.",
+      "summary": "\u26a0\ufe0f File Descriptor Pressure on {{ $labels.instance }}"
+    },
+    "labels": {
+      "severity": "warning"
+    },
+    "provenance": "api",
+    "isPaused": false,
+    "notification_settings": null,
+    "record": null
+  },
+  {
+    "id": 13,
+    "uid": "bfl5jztotw268c",
+    "orgID": 1,
+    "folderUID": "cfl22xkwiht6oe",
+    "ruleGroup": "warning-alerts",
+    "title": "High Network Bandwidth > 500 Mbps",
+    "condition": "C",
+    "data": [
+      {
+        "refId": "A",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "PBFA97CFB590B2093",
+        "model": {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "max by (instance) (irate(node_network_transmit_bytes_total{instance=~\".*\",job=\"ipfs-cluster-nodes\",device!=\"lo\"}[5m])) * 8",
+          "instant": true,
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "A"
+        }
+      },
+      {
+        "refId": "C",
+        "queryType": "",
+        "relativeTimeRange": {
+          "from": 600,
+          "to": 0
+        },
+        "datasourceUid": "-100",
+        "model": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [
+                  500000000
+                ],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": [
+                  "A"
+                ]
+              },
+              "reducer": {
+                "params": [],
+                "type": "last"
+              },
+              "type": "query"
+            }
+          ],
+          "datasource": {
+            "type": "__expr__",
+            "uid": "-100"
+          },
+          "expression": "A",
+          "intervalMs": 1000,
+          "maxDataPoints": 43200,
+          "refId": "C",
+          "type": "threshold"
+        }
+      }
+    ],
+    "updated": "2026-05-05T23:32:06+09:00",
+    "noDataState": "OK",
+    "execErrState": "Error",
+    "for": "5m",
+    "keep_firing_for": "0s",
+    "annotations": {
+      "description": "Network on {{ $labels.instance }} has sustained over 500 Mbps for 5 minutes (current: {{ printf \"%.0f\" $values.A.Value }} bps). Could indicate abnormal traffic or runaway replication.",
+      "summary": "\u26a0\ufe0f High Network Bandwidth on {{ $labels.instance }}"
+    },
+    "labels": {
+      "severity": "warning"
+    },
+    "provenance": "api",
+    "isPaused": false,
+    "notification_settings": null,
+    "record": null
+  }
+]

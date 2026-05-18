@@ -50,20 +50,20 @@ SSH_OPTS=(-i "$IDENTITY" -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyC
 
 KEY_B64="$(printf '%s' "$KEY_LINE" | base64 | tr -d '\n')"
 
-# Sync with notes.md — NHN cluster
+# NHN cluster (keep in sync with remove-ssh-key-nhn-hosts.sh / notes.md)
 HOSTS=(
-  125.6.39.137    # ipfs-1
-  133.186.151.67  # ipfs-2
-  133.186.151.108 # ipfs-3
-  180.210.82.9    # metadata-manager-1
-  133.186.159.168 # metadata-manager-2
-  125.6.39.129    # metadata-manager-3
-  180.210.83.72   # hdd-server-1
-  180.210.83.30   # hdd-server-2
-  180.210.83.141  # hdd-server-3
-  133.186.135.101 # ssd-server-1
-  133.186.135.245 # ssd-server-2
-  133.186.135.194 # ssd-server-3
+  125.6.39.137     # ipfs-1
+  133.186.151.67   # ipfs-2
+  133.186.151.108  # ipfs-3
+  133.186.212.160  # metadata-manager-1
+  133.186.159.168  # metadata-manager-2
+  125.6.39.129     # metadata-manager-3
+  180.210.83.72    # hdd-server-1
+  180.210.83.30    # hdd-server-2
+  180.210.83.141   # hdd-server-3
+  133.186.135.101  # ssd-server-1
+  133.186.135.245  # ssd-server-2
+  133.186.135.194  # ssd-server-3
 )
 
 install_on_host() {

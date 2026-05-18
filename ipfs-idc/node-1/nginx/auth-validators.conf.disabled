@@ -1,0 +1,6 @@
+# Auth validation upstreams - will try staging first, then uat if staging fails
+upstream auth_validators {
+    server staging.koneksi.co.kr:443 max_fails=1 fail_timeout=1s;
+    server uat.koneksi.co.kr:443 backup;
+    keepalive 32;
+}

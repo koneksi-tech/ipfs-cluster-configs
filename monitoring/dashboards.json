@@ -1,0 +1,71 @@
+[
+  {
+    "id": 2349543773413376,
+    "uid": "idc-ipfs-cluster",
+    "orgId": 1,
+    "title": "IDC IPFS Cluster \u2014 Node Monitoring (node1\u2013node4)",
+    "uri": "db/4eaf0b2",
+    "url": "/d/idc-ipfs-cluster/4eaf0b2",
+    "slug": "",
+    "type": "dash-db",
+    "tags": [
+      "cluster",
+      "idc",
+      "ipfs"
+    ],
+    "isStarred": false,
+    "sortMeta": 0,
+    "isDeleted": false
+  },
+  {
+    "id": 2368634089349120,
+    "uid": "cluster-logs",
+    "orgId": 1,
+    "title": "IPFS Cluster \u2014 Logs (IDC LB + IDC Nodes + NHN Nodes)",
+    "uri": "db/4e7e334",
+    "url": "/d/cluster-logs/4e7e334",
+    "slug": "",
+    "type": "dash-db",
+    "tags": [
+      "cluster",
+      "ipfs",
+      "logs",
+      "loki"
+    ],
+    "isStarred": false,
+    "sortMeta": 0,
+    "isDeleted": false
+  },
+  {
+    "id": 3797056407891968,
+    "uid": "add47ll",
+    "orgId": 1,
+    "title": "New dashboard",
+    "uri": "db/new-dashboard",
+    "url": "/d/add47ll/new-dashboard",
+    "slug": "",
+    "type": "dash-db",
+    "tags": [],
+    "isStarred": false,
+    "sortMeta": 0,
+    "isDeleted": false
+  },
+  {
+    "id": 2200097064460288,
+    "uid": "nhn-ipfs-cluster",
+    "orgId": 1,
+    "title": "NHN IPFS Cluster \u2014 Node Monitoring",
+    "uri": "db/nhn-ipfs-cluster-e28094-node-monitoring",
+    "url": "/d/nhn-ipfs-cluster/nhn-ipfs-cluster-e28094-node-monitoring",
+    "slug": "",
+    "type": "dash-db",
+    "tags": [
+      "cluster",
+      "ipfs",
+      "nhn"
+    ],
+    "isStarred": false,
+    "sortMeta": 0,
+    "isDeleted": false
+  }
+]
