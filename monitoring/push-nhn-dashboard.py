@@ -6,7 +6,7 @@ import json, ssl, urllib.request, base64, sys
 GRAFANA_URL = "https://nhn-grafana.koneksi.co.kr"
 USER = "admin"
 PASS = "ar@dm1n"
-IF = "$instance"   # instance filter variable placeholder
+IF = "$nodename"   # nodename filter variable placeholder
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -14,7 +14,7 @@ IF = "$instance"   # instance filter variable placeholder
 def ds():
     return {"type": "prometheus", "uid": "${datasource}"}
 
-def target(expr, legend="{{instance}}", ref="A"):
+def target(expr, legend="{{nodename}}", ref="A"):
     return {"datasource": ds(), "editorMode": "code", "expr": expr,
             "instant": False, "legendFormat": legend, "range": True, "refId": ref}
 
@@ -121,25 +121,25 @@ i = 1
 p.append(row_panel(i, "Overview", 0)); i += 1
 
 p.append(stat(i, "CPU Usage %", 0, 1, 6, 4,
-    [target(f'100 - (avg by (instance) (irate(node_cpu_seconds_total{{mode="idle",instance=~"{IF}"}}[5m])) * 100)')],
+    [target(f'100 - (avg by (nodename) (irate(node_cpu_seconds_total{{mode="idle",nodename=~"{IF}"}}[5m])) * 100)')],
     unit="percent",
     thresholds=[{"color": "green", "value": None}, {"color": "yellow", "value": 70}, {"color": "red", "value": 90}]
 )); i += 1
 
 p.append(stat(i, "Memory Usage %", 6, 1, 6, 4,
-    [target(f'(1 - node_memory_MemAvailable_bytes{{instance=~"{IF}"}} / node_memory_MemTotal_bytes{{instance=~"{IF}"}}) * 100')],
+    [target(f'(1 - node_memory_MemAvailable_bytes{{nodename=~"{IF}"}} / node_memory_MemTotal_bytes{{nodename=~"{IF}"}}) * 100')],
     unit="percent",
     thresholds=[{"color": "green", "value": None}, {"color": "yellow", "value": 80}, {"color": "red", "value": 90}]
 )); i += 1
 
 p.append(stat(i, "Disk Usage % (root)", 12, 1, 6, 4,
-    [target(f'(1 - node_filesystem_avail_bytes{{instance=~"{IF}",mountpoint="/",fstype!="tmpfs"}} / node_filesystem_size_bytes{{instance=~"{IF}",mountpoint="/",fstype!="tmpfs"}}) * 100')],
+    [target(f'(1 - node_filesystem_avail_bytes{{nodename=~"{IF}",mountpoint="/",fstype!="tmpfs"}} / node_filesystem_size_bytes{{nodename=~"{IF}",mountpoint="/",fstype!="tmpfs"}}) * 100')],
     unit="percent",
     thresholds=[{"color": "green", "value": None}, {"color": "yellow", "value": 75}, {"color": "red", "value": 90}]
 )); i += 1
 
 p.append(stat(i, "Uptime", 18, 1, 6, 4,
-    [target(f'time() - node_boot_time_seconds{{instance=~"{IF}"}}')],
+    [target(f'time() - node_boot_time_seconds{{nodename=~"{IF}"}}')],
     unit="dtdhms", color_mode="value", graph_mode="none",
     thresholds=[{"color": "green", "value": None}]
 )); i += 1
@@ -148,7 +148,7 @@ p.append(stat(i, "Uptime", 18, 1, 6, 4,
 p.append(row_panel(i, "CPU", 5)); i += 1
 
 p.append(timeseries(i, "CPU Usage %", 0, 6, 24, 8,
-    [target(f'100 - (avg by (instance) (irate(node_cpu_seconds_total{{mode="idle",instance=~"{IF}"}}[5m])) * 100)')],
+    [target(f'100 - (avg by (nodename) (irate(node_cpu_seconds_total{{mode="idle",nodename=~"{IF}"}}[5m])) * 100)')],
     unit="percent"
 )); i += 1
 
@@ -157,14 +157,14 @@ p.append(row_panel(i, "Memory", 14)); i += 1
 
 p.append(timeseries(i, "Memory Usage", 0, 15, 12, 8,
     [
-        target(f'node_memory_MemTotal_bytes{{instance=~"{IF}"}} - node_memory_MemAvailable_bytes{{instance=~"{IF}"}}', "{{instance}} used",      "A"),
-        target(f'node_memory_MemAvailable_bytes{{instance=~"{IF}"}}',                                                  "{{instance}} available", "B"),
+        target(f'node_memory_MemTotal_bytes{{nodename=~"{IF}"}} - node_memory_MemAvailable_bytes{{nodename=~"{IF}"}}', "{{nodename}} used",      "A"),
+        target(f'node_memory_MemAvailable_bytes{{nodename=~"{IF}"}}',                                                  "{{nodename}} available", "B"),
     ],
     unit="bytes"
 )); i += 1
 
 p.append(bargauge(i, "Memory Available Now", 12, 15, 12, 8,
-    [target(f'node_memory_MemAvailable_bytes{{instance=~"{IF}"}}', "{{instance}}")],
+    [target(f'node_memory_MemAvailable_bytes{{nodename=~"{IF}"}}', "{{nodename}}")],
     unit="bytes"
 )); i += 1
 
@@ -172,45 +172,45 @@ p.append(bargauge(i, "Memory Available Now", 12, 15, 12, 8,
 p.append(row_panel(i, "Block Storage — /mnt/data (1TB per node)", 23)); i += 1
 
 p.append(stat(i, "Block Storage Used %", 0, 24, 6, 4,
-    [target(f'(1 - node_filesystem_avail_bytes{{instance=~"{IF}",mountpoint="/mnt/data"}} / node_filesystem_size_bytes{{instance=~"{IF}",mountpoint="/mnt/data"}}) * 100')],
+    [target(f'(1 - node_filesystem_avail_bytes{{nodename=~"{IF}",mountpoint="/mnt/data"}} / node_filesystem_size_bytes{{nodename=~"{IF}",mountpoint="/mnt/data"}}) * 100')],
     unit="percent",
     thresholds=[{"color": "green", "value": None}, {"color": "yellow", "value": 70}, {"color": "red", "value": 90}]
 )); i += 1
 
 p.append(stat(i, "Block Storage Free", 6, 24, 6, 4,
-    [target(f'node_filesystem_avail_bytes{{instance=~"{IF}",mountpoint="/mnt/data"}}', "{{instance}}")],
+    [target(f'node_filesystem_avail_bytes{{nodename=~"{IF}",mountpoint="/mnt/data"}}', "{{nodename}}")],
     unit="bytes", color_mode="value", graph_mode="none",
     thresholds=[{"color": "red", "value": None}, {"color": "yellow", "value": 107374182400}, {"color": "green", "value": 214748364800}]
 )); i += 1
 
 p.append(stat(i, "Block Storage Used", 12, 24, 6, 4,
-    [target(f'node_filesystem_size_bytes{{instance=~"{IF}",mountpoint="/mnt/data"}} - node_filesystem_avail_bytes{{instance=~"{IF}",mountpoint="/mnt/data"}}', "{{instance}}")],
+    [target(f'node_filesystem_size_bytes{{nodename=~"{IF}",mountpoint="/mnt/data"}} - node_filesystem_avail_bytes{{nodename=~"{IF}",mountpoint="/mnt/data"}}', "{{nodename}}")],
     unit="bytes", color_mode="background", graph_mode="none",
     thresholds=[{"color": "green", "value": None}, {"color": "yellow", "value": 751619276800}, {"color": "red", "value": 966367641600}]
 )); i += 1
 
 p.append(stat(i, "Block Storage Total", 18, 24, 6, 4,
-    [target(f'node_filesystem_size_bytes{{instance=~"{IF}",mountpoint="/mnt/data"}}', "{{instance}}")],
+    [target(f'node_filesystem_size_bytes{{nodename=~"{IF}",mountpoint="/mnt/data"}}', "{{nodename}}")],
     unit="bytes", color_mode="value", graph_mode="none",
     thresholds=[{"color": "green", "value": None}]
 )); i += 1
 
 p.append(bargauge(i, "Block Storage — Used vs Free per Node (/mnt/data)", 0, 28, 14, 8,
     [
-        target(f'node_filesystem_size_bytes{{instance=~"{IF}",mountpoint="/mnt/data"}} - node_filesystem_avail_bytes{{instance=~"{IF}",mountpoint="/mnt/data"}}',
-               "{{instance}} used", "A"),
-        target(f'node_filesystem_avail_bytes{{instance=~"{IF}",mountpoint="/mnt/data"}}',
-               "{{instance}} free", "B"),
+        target(f'node_filesystem_size_bytes{{nodename=~"{IF}",mountpoint="/mnt/data"}} - node_filesystem_avail_bytes{{nodename=~"{IF}",mountpoint="/mnt/data"}}',
+               "{{nodename}} used", "A"),
+        target(f'node_filesystem_avail_bytes{{nodename=~"{IF}",mountpoint="/mnt/data"}}',
+               "{{nodename}} free", "B"),
     ],
     unit="bytes"
 )); i += 1
 
 p.append(timeseries(i, "Block Storage Usage Over Time (/mnt/data)", 14, 28, 10, 8,
     [
-        target(f'node_filesystem_size_bytes{{instance=~"{IF}",mountpoint="/mnt/data"}} - node_filesystem_avail_bytes{{instance=~"{IF}",mountpoint="/mnt/data"}}',
-               "{{instance}} used", "A"),
-        target(f'node_filesystem_avail_bytes{{instance=~"{IF}",mountpoint="/mnt/data"}}',
-               "{{instance}} free", "B"),
+        target(f'node_filesystem_size_bytes{{nodename=~"{IF}",mountpoint="/mnt/data"}} - node_filesystem_avail_bytes{{nodename=~"{IF}",mountpoint="/mnt/data"}}',
+               "{{nodename}} used", "A"),
+        target(f'node_filesystem_avail_bytes{{nodename=~"{IF}",mountpoint="/mnt/data"}}',
+               "{{nodename}} free", "B"),
     ],
     unit="bytes"
 )); i += 1
@@ -220,18 +220,18 @@ p.append(row_panel(i, "OS Disk — All Filesystems", 36)); i += 1
 
 p.append(bargauge(i, "Disk Space — Used vs Free (all mounts)", 0, 37, 12, 9,
     [
-        target(f'node_filesystem_size_bytes{{instance=~"{IF}",fstype!~"tmpfs|devtmpfs|overlay",mountpoint!~"/boot.*"}} - node_filesystem_avail_bytes{{instance=~"{IF}",fstype!~"tmpfs|devtmpfs|overlay",mountpoint!~"/boot.*"}}',
-               "{{instance}} {{mountpoint}} used",  "A"),
-        target(f'node_filesystem_avail_bytes{{instance=~"{IF}",fstype!~"tmpfs|devtmpfs|overlay",mountpoint!~"/boot.*"}}',
-               "{{instance}} {{mountpoint}} free",  "B"),
+        target(f'node_filesystem_size_bytes{{nodename=~"{IF}",fstype!~"tmpfs|devtmpfs|overlay",mountpoint!~"/boot.*"}} - node_filesystem_avail_bytes{{nodename=~"{IF}",fstype!~"tmpfs|devtmpfs|overlay",mountpoint!~"/boot.*"}}',
+               "{{nodename}} {{mountpoint}} used",  "A"),
+        target(f'node_filesystem_avail_bytes{{nodename=~"{IF}",fstype!~"tmpfs|devtmpfs|overlay",mountpoint!~"/boot.*"}}',
+               "{{nodename}} {{mountpoint}} free",  "B"),
     ],
     unit="bytes"
 )); i += 1
 
 p.append(timeseries(i, "Disk I/O Throughput", 12, 37, 12, 9,
     [
-        target(f'irate(node_disk_read_bytes_total{{instance=~"{IF}"}}[5m])',    "{{instance}} read",  "A"),
-        target(f'irate(node_disk_written_bytes_total{{instance=~"{IF}"}}[5m])', "{{instance}} write", "B"),
+        target(f'irate(node_disk_read_bytes_total{{nodename=~"{IF}"}}[5m])',    "{{nodename}} read",  "A"),
+        target(f'irate(node_disk_written_bytes_total{{nodename=~"{IF}"}}[5m])', "{{nodename}} write", "B"),
     ],
     unit="Bps"
 )); i += 1
@@ -240,21 +240,21 @@ p.append(timeseries(i, "Disk I/O Throughput", 12, 37, 12, 9,
 p.append(row_panel(i, "Network", 33)); i += 1
 
 p.append(timeseries(i, "Network Receive Bandwidth", 0, 34, 12, 8,
-    [target(f'irate(node_network_receive_bytes_total{{instance=~"{IF}",device!="lo"}}[5m]) * 8', "{{instance}} {{device}}")],
+    [target(f'irate(node_network_receive_bytes_total{{nodename=~"{IF}",device!="lo"}}[5m]) * 8', "{{nodename}} {{device}}")],
     unit="bps"
 )); i += 1
 
 p.append(timeseries(i, "Network Transmit Bandwidth", 12, 34, 12, 8,
-    [target(f'irate(node_network_transmit_bytes_total{{instance=~"{IF}",device!="lo"}}[5m]) * 8', "{{instance}} {{device}}")],
+    [target(f'irate(node_network_transmit_bytes_total{{nodename=~"{IF}",device!="lo"}}[5m]) * 8', "{{nodename}} {{device}}")],
     unit="bps"
 )); i += 1
 
 p.append(timeseries(i, "Network Errors & Drops", 0, 42, 24, 6,
     [
-        target(f'irate(node_network_receive_errs_total{{instance=~"{IF}",device!="lo"}}[5m])',   "{{instance}} {{device}} rx_err",  "A"),
-        target(f'irate(node_network_receive_drop_total{{instance=~"{IF}",device!="lo"}}[5m])',   "{{instance}} {{device}} rx_drop", "B"),
-        target(f'irate(node_network_transmit_errs_total{{instance=~"{IF}",device!="lo"}}[5m])',  "{{instance}} {{device}} tx_err",  "C"),
-        target(f'irate(node_network_transmit_drop_total{{instance=~"{IF}",device!="lo"}}[5m])',  "{{instance}} {{device}} tx_drop", "D"),
+        target(f'irate(node_network_receive_errs_total{{nodename=~"{IF}",device!="lo"}}[5m])',   "{{nodename}} {{device}} rx_err",  "A"),
+        target(f'irate(node_network_receive_drop_total{{nodename=~"{IF}",device!="lo"}}[5m])',   "{{nodename}} {{device}} rx_drop", "B"),
+        target(f'irate(node_network_transmit_errs_total{{nodename=~"{IF}",device!="lo"}}[5m])',  "{{nodename}} {{device}} tx_err",  "C"),
+        target(f'irate(node_network_transmit_drop_total{{nodename=~"{IF}",device!="lo"}}[5m])',  "{{nodename}} {{device}} tx_drop", "D"),
     ],
     unit="pps", fill=0
 )); i += 1
@@ -264,14 +264,14 @@ p.append(row_panel(i, "System", 48)); i += 1
 
 p.append(timeseries(i, "System Load Average", 0, 49, 16, 8,
     [
-        target(f'node_load1{{instance=~"{IF}"}}',  "{{instance}} 1m",  "A"),
-        target(f'node_load5{{instance=~"{IF}"}}',  "{{instance}} 5m",  "B"),
-        target(f'node_load15{{instance=~"{IF}"}}', "{{instance}} 15m", "C"),
+        target(f'node_load1{{nodename=~"{IF}"}}',  "{{nodename}} 1m",  "A"),
+        target(f'node_load5{{nodename=~"{IF}"}}',  "{{nodename}} 5m",  "B"),
+        target(f'node_load15{{nodename=~"{IF}"}}', "{{nodename}} 15m", "C"),
     ]
 )); i += 1
 
 p.append(stat(i, "Open File Descriptors", 16, 49, 8, 8,
-    [target(f'node_filefd_allocated{{instance=~"{IF}"}}')],
+    [target(f'node_filefd_allocated{{nodename=~"{IF}"}}')],
     unit="short", color_mode="background",
     thresholds=[{"color": "green", "value": None}, {"color": "yellow", "value": 50000}, {"color": "red", "value": 100000}]
 )); i += 1
@@ -298,15 +298,15 @@ dashboard = {
             {
                 "current": {"selected": True, "text": "All", "value": "$__all"},
                 "datasource": {"type": "prometheus", "uid": "${datasource}"},
-                "definition": 'label_values(node_cpu_seconds_total{job="ipfs-cluster-nodes"}, instance)',
+                "definition": 'label_values(node_cpu_seconds_total{job="ipfs-cluster-nodes",cluster="nhn"}, nodename)',
                 "hide": 0, "includeAll": True, "multi": True,
-                "name": "instance",
+                "name": "nodename",
                 "query": {
-                    "query": 'label_values(node_cpu_seconds_total{job="ipfs-cluster-nodes"}, instance)',
+                    "query": 'label_values(node_cpu_seconds_total{job="ipfs-cluster-nodes",cluster="nhn"}, nodename)',
                     "refId": "StandardVariableQuery"
                 },
                 "refresh": 2,
-                "regex": "133\\.186\\..*",
+                "regex": "",
                 "sort": 1,
                 "type": "query"
             }

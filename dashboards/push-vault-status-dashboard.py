@@ -26,6 +26,7 @@ VALUE_MAPPINGS = [
     }}
 ]
 
+# ── per-node stat panel ──────────────────────────────────────────────────────
 def stat_panel(pid, title, env, node, x, y):
     return {
         "datasource": ds(),
@@ -65,77 +66,154 @@ def stat_panel(pid, title, env, node, x, y):
         "type": "stat"
     }
 
-def row_panel(pid, title, y):
+# ── leader indicator per cluster row (text panel showing leader node name) ───
+def leader_panel(pid, env, x, y):
     return {
-        "collapsed": False,
-        "gridPos": {"h": 1, "w": 24, "x": 0, "y": y},
+        "datasource": ds(),
+        "gridPos": {"h": 4, "w": 6, "x": x, "y": y},
         "id": pid,
-        "title": title,
-        "type": "row"
+        "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "textMode": "value_and_name",
+            "reduceOptions": {"calcs": ["lastNotNull"], "fields": ""},
+        },
+        "fieldConfig": {
+            "defaults": {
+                "color": {"mode": "fixed", "fixedColor": "green"},
+                "noValue": "—",
+            }
+        },
+        "targets": [{
+            "datasource": ds(),
+            "expr": f'probe_http_status_code{{job="vault-health", env="{env}"}} == 200',
+            "instant": True,
+            "legendFormat": "{{node}}",
+            "refId": "A"
+        }],
+        "title": "Current Leader",
+        "type": "stat"
     }
 
+# ── cluster section header (text panel — visual separator) ───────────────────
+def section_header(pid, title, y, color="#1f6feb"):
+    return {
+        "datasource": ds(),
+        "gridPos": {"h": 2, "w": 24, "x": 0, "y": y},
+        "id": pid,
+        "options": {
+            "content": f'<div style="background:{color};color:white;padding:8px 14px;border-radius:4px;font-size:18px;font-weight:600;letter-spacing:0.5px;">{title}</div>',
+            "mode": "html"
+        },
+        "type": "text",
+        "transparent": True,
+    }
+
+# ── top summary row: 4 big stat panels ───────────────────────────────────────
+TOTAL_EXPR    = 'count(probe_http_status_code{job="vault-health"})'
+ACTIVE_EXPR   = 'count(probe_http_status_code{job="vault-health"} == 200) OR vector(0)'
+STANDBY_EXPR  = 'count(probe_http_status_code{job="vault-health"} == 429) OR vector(0)'
+PROBLEM_EXPR  = ('(count(probe_http_status_code{job="vault-health"} == 503) OR vector(0)) '
+                 '+ '
+                 '(count(probe_success{job="vault-health"} == 0) OR vector(0))')
+
+def summary_stat(pid, title, expr, x, color):
+    return {
+        "datasource": ds(),
+        "gridPos": {"h": 5, "w": 6, "x": x, "y": 0},
+        "id": pid,
+        "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "center",
+            "reduceOptions": {"calcs": ["lastNotNull"], "fields": ""},
+            "textMode": "value_and_name",
+        },
+        "fieldConfig": {
+            "defaults": {
+                "color": {"mode": "fixed", "fixedColor": color},
+                "unit": "short",
+            }
+        },
+        "targets": [{
+            "datasource": ds(),
+            "expr": expr,
+            "instant": True,
+            "legendFormat": title,
+            "refId": "A"
+        }],
+        "title": title,
+        "type": "stat"
+    }
+
+# ── compact legend ───────────────────────────────────────────────────────────
 legend_panel = {
-    "gridPos": {"h": 6, "w": 24, "x": 0, "y": 0},
+    "gridPos": {"h": 4, "w": 24, "x": 0, "y": 5},
     "id": 99,
     "options": {
         "content": (
-            "| Color | Status | Meaning |\n"
-            "|-------|--------|---------|\n"
-            "| 🟢 Green | **Active** | Unsealed, Raft leader — handling all requests |\n"
-            "| 🔵 Blue | **Standby** | Unsealed, Raft follower — ready to take over if leader fails |\n"
-            "| 🟠 Orange | **Sealed** | Node is running but sealed — needs 3 unseal keys to recover |\n"
-            "| 🔴 Red | **Down** | Node unreachable — service may be stopped or network issue |\n\n"
-            "---\n\n"
-            "**Discord Alerts** — fires after 2 minutes sustained:\n\n"
-            "| Alert | Trigger | Action |\n"
-            "|-------|---------|--------|\n"
-            "| 🟠 Vault Sealed | HTTP 503 on `/v1/sys/health` | Run `vault operator unseal` (3 keys) — keys in vault/vault-notes.md |\n"
-            "| 🔴 Vault Down | Probe unreachable | SSH to node → `systemctl status vault` → `systemctl start vault` |"
+            "**Status:** 🟢 Active (leader)  ·  🔵 Standby (follower, HA-ready)  ·  "
+            "🟠 Sealed (needs unseal)  ·  🔴 Down (unreachable)\n\n"
+            "**Alerts → Discord (after 2m sustained):** Vault Sealed → run `vault operator unseal` (3 keys in `vault/vault-notes.md`)  ·  "
+            "Vault Down → SSH → `systemctl status vault`"
         ),
         "mode": "markdown"
     },
-    "title": "Status Legend & Alerts",
+    "title": "Legend & Alert Actions",
     "type": "text"
 }
 
+# ── build dashboard ──────────────────────────────────────────────────────────
 panels = []
+
+# Top summary row (y=0)
+panels.append(summary_stat(101, "Total Vaults",  TOTAL_EXPR,   0,  "purple"))
+panels.append(summary_stat(102, "Active",        ACTIVE_EXPR,  6,  "green"))
+panels.append(summary_stat(103, "Standby",       STANDBY_EXPR, 12, "blue"))
+panels.append(summary_stat(104, "Sealed / Down", PROBLEM_EXPR, 18, "red"))
+
+# Legend (y=5)
+panels.append(legend_panel)
+
 pid = 1
-y = 6
+y = 9
+
+# --- prod-new-do (3 nodes) — PRODUCTION, shown first with red banner ---
+panels.append(section_header(pid, "🔴 PRODUCTION — prod-new-do-vault", y, color="#b91c1c")); pid += 1
+y += 2
+for i, node in enumerate(["do-vault-1", "do-vault-2", "do-vault-3"]):
+    panels.append(stat_panel(pid, node, "prod-new-do", node, i * 4, y))
+    pid += 1
+panels.append(leader_panel(pid, "prod-new-do", 12, y)); pid += 1
+y += 4
 
 # --- staging-nhn (3 nodes) ---
-panels.append(row_panel(pid, "staging-nhn-vault", y)); pid += 1; y += 1
+panels.append(section_header(pid, "staging-nhn-vault", y, color="#1f6feb")); pid += 1
+y += 2
 for i, node in enumerate(["nhn-vault-1", "nhn-vault-2", "nhn-vault-3"]):
     panels.append(stat_panel(pid, node, "staging-nhn", node, i * 4, y))
     pid += 1
+panels.append(leader_panel(pid, "staging-nhn", 12, y)); pid += 1
 y += 4
-
-# --- prod-do (3 nodes) ---
-panels.append(row_panel(pid, "prod-do-vault", y)); pid += 1; y += 1
-for i, node in enumerate(["do-vault-1", "do-vault-2", "do-vault-3"]):
-    panels.append(stat_panel(pid, node, "prod-do", node, i * 4, y))
-    pid += 1
-y += 4
-
-# --- prod-new-do (1 node) ---
-panels.append(row_panel(pid, "prod-new-do-vault", y)); pid += 1; y += 1
-panels.append(stat_panel(pid, "do-vault-1", "prod-new-do", "do-vault-1", 0, y))
-pid += 1; y += 4
 
 # --- uat-do (1 node) ---
-panels.append(row_panel(pid, "uat-do-vault", y)); pid += 1; y += 1
-panels.append(stat_panel(pid, "do-vault-1", "uat-do", "do-vault-1", 0, y))
-pid += 1; y += 4
+panels.append(section_header(pid, "uat-do-vault", y, color="#6366f1")); pid += 1
+y += 2
+panels.append(stat_panel(pid, "do-vault-1", "uat-do", "do-vault-1", 0, y)); pid += 1
+y += 4
 
 # --- staging-do (1 node) ---
-panels.append(row_panel(pid, "staging-do-vault", y)); pid += 1; y += 1
-panels.append(stat_panel(pid, "do-vault-1", "staging-do", "do-vault-1", 0, y))
-pid += 1
+panels.append(section_header(pid, "staging-do-vault", y, color="#6366f1")); pid += 1
+y += 2
+panels.append(stat_panel(pid, "do-vault-1", "staging-do", "do-vault-1", 0, y)); pid += 1
+y += 4
 
 dashboard = {
     "annotations": {"list": []},
     "editable": True,
     "graphTooltip": 0,
-    "panels": [legend_panel] + panels,
+    "panels": panels,
     "refresh": "30s",
     "schemaVersion": 38,
     "tags": ["vault", "status"],
