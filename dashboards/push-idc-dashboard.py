@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-"""Build and push the IDC IPFS Cluster monitoring dashboard to Grafana.
-   Covers node1–node4 only. node5 is the load balancer — excluded.
+"""Build and push the IDC IPFS nodes (shared host resources) dashboard to Grafana.
+   Nodes 1–4 run BOTH kubo (ipfs-cluster) and kripfs (kipfs :28080) co-resident,
+   so these host metrics are the COMBINED load of both clusters.
+   node5 is the load balancer — excluded.
 """
 
 import json, ssl, urllib.request, base64, sys
@@ -81,7 +83,30 @@ def stat(id, title, x, y, w, h, targets, unit="short", thresholds=None, color_mo
         "type": "stat"
     }
 
-def bargauge(id, title, x, y, w, h, targets, unit="bytes"):
+# Per-series colour overrides for combined "used vs free" bargauges:
+# "free" series  -> higher is better (red low, green high)
+# "used" series  -> higher is worse  (green low, red high)
+# Matched by legend suffix so it works for "<node> free" and "<node> <mount> free".
+USED_FREE_OVERRIDES = [
+    {"matcher": {"id": "byRegexp", "options": ".* free$"},
+     "properties": [{"id": "thresholds", "value": {"mode": "percentage", "steps": [
+         {"color": "red", "value": None}, {"color": "yellow", "value": 30}, {"color": "green", "value": 60}]}}]},
+    {"matcher": {"id": "byRegexp", "options": ".* used$"},
+     "properties": [{"id": "thresholds", "value": {"mode": "percentage", "steps": [
+         {"color": "green", "value": None}, {"color": "yellow", "value": 70}, {"color": "red", "value": 90}]}}]},
+]
+
+def bargauge(id, title, x, y, w, h, targets, unit="bytes", thresholds=None, threshold_mode="percentage", overrides=None):
+    # Default thresholds are "higher = worse" (percentage), correct for USAGE %.
+    # For AVAILABLE / FREE metrics (higher = better) pass inverted thresholds,
+    # e.g. red=low, green=high, with threshold_mode="absolute".
+    # `overrides` allows per-series colouring (see USED_FREE_OVERRIDES).
+    if thresholds is None:
+        thresholds = [
+            {"color": "green",  "value": None},
+            {"color": "yellow", "value": 70},
+            {"color": "red",    "value": 90}
+        ]
     return {
         "datasource": ds(),
         "fieldConfig": {
@@ -89,16 +114,12 @@ def bargauge(id, title, x, y, w, h, targets, unit="bytes"):
                 "color": {"mode": "thresholds"},
                 "mappings": [],
                 "thresholds": {
-                    "mode": "percentage",
-                    "steps": [
-                        {"color": "green",  "value": None},
-                        {"color": "yellow", "value": 70},
-                        {"color": "red",    "value": 90}
-                    ]
+                    "mode": threshold_mode,
+                    "steps": thresholds
                 },
                 "unit": unit
             },
-            "overrides": []
+            "overrides": overrides if overrides else []
         },
         "gridPos": {"h": h, "w": w, "x": x, "y": y},
         "id": id,
@@ -173,7 +194,14 @@ p.append(timeseries(i, "Memory Usage", 0, 19, 12, 8,
 
 p.append(bargauge(i, "Memory Available Now", 12, 19, 12, 8,
     [target_instant(f'node_memory_MemAvailable_bytes{{nodename=~"{IF}"}}', "{{nodename}}")],
-    unit="bytes"
+    unit="bytes",
+    # Available memory: higher = better → green high, red low (absolute GiB).
+    thresholds=[
+        {"color": "red",    "value": None},        # < 8 GiB available  → critical
+        {"color": "yellow", "value": 8589934592},  # 8 GiB              → low
+        {"color": "green",  "value": 34359738368}  # ≥ 32 GiB           → healthy
+    ],
+    threshold_mode="absolute"
 )); i += 1
 
 # ── Row: Data Storage /data ───────────────────────────────────────────────────
@@ -210,7 +238,8 @@ p.append(bargauge(i, "Data Disk — Used vs Free per Node (/data)", 0, 36, 14, 8
         target_instant(f'node_filesystem_avail_bytes{{nodename=~"{IF}",mountpoint="/data"}}',
                "{{nodename}} free", "B"),
     ],
-    unit="bytes"
+    unit="bytes",
+    overrides=USED_FREE_OVERRIDES
 )); i += 1
 
 p.append(timeseries(i, "Data Disk Usage Over Time (/data)", 14, 36, 10, 8,
@@ -277,6 +306,25 @@ p.append(stat(i, "Open File Descriptors", 16, 69, 8, 8,
 
 # ── dashboard ─────────────────────────────────────────────────────────────────
 
+# Co-residency banner: shift all panels down 3 rows and prepend an info note so
+# it's clear these host metrics are the COMBINED load of kubo + kripfs — both
+# daemons run on the same IDC nodes 1–4 (kubo ipfs-cluster + kripfs kipfs :28080).
+for _panel in p:
+    _panel["gridPos"]["y"] += 3
+p.insert(0, {
+    "gridPos": {"h": 3, "w": 24, "x": 0, "y": 0},
+    "id": i,
+    "type": "text",
+    "title": "",
+    "options": {"mode": "markdown", "content": (
+        "### IDC nodes 1–4 — shared hardware: **kubo** + **kripfs**\n"
+        "These hosts run **both** the kubo `ipfs-cluster` daemon **and** the kripfs "
+        "`kipfs` (Rust, :28080) daemon, co-resident. The CPU / memory / disk / "
+        "network panels below are the **combined** load of *both* clusters on the "
+        "same machines — there is no separate per-cluster hardware. node-5 (LB) excluded."
+    )},
+}); i += 1
+
 dashboard = {
     "annotations": {"list": []},
     "editable": True,
@@ -284,7 +332,7 @@ dashboard = {
     "panels": p,
     "refresh": "30s",
     "schemaVersion": 38,
-    "tags": ["idc", "ipfs", "cluster"],
+    "tags": ["idc", "ipfs", "cluster", "kubo", "kripfs"],
     "templating": {
         "list": [
             {
@@ -313,7 +361,7 @@ dashboard = {
     "time": {"from": "now-1h", "to": "now"},
     "timepicker": {},
     "timezone": "browser",
-    "title": "IDC IPFS Cluster — Node Monitoring (node1–node4)",
+    "title": "IDC IPFS Nodes — Shared Resources (kubo + kripfs · node1–node4)",
     "uid": "idc-ipfs-cluster",
     "version": 0
 }

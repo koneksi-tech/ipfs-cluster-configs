@@ -74,7 +74,28 @@ def stat(id, title, x, y, w, h, targets, unit="short", thresholds=None, color_mo
         "type": "stat"
     }
 
-def bargauge(id, title, x, y, w, h, targets, unit="bytes"):
+# Per-series colour overrides for combined "used vs free" bargauges:
+# "free" series -> higher is better (red low, green high); "used" -> higher is worse.
+USED_FREE_OVERRIDES = [
+    {"matcher": {"id": "byRegexp", "options": ".* free$"},
+     "properties": [{"id": "thresholds", "value": {"mode": "percentage", "steps": [
+         {"color": "red", "value": None}, {"color": "yellow", "value": 30}, {"color": "green", "value": 60}]}}]},
+    {"matcher": {"id": "byRegexp", "options": ".* used$"},
+     "properties": [{"id": "thresholds", "value": {"mode": "percentage", "steps": [
+         {"color": "green", "value": None}, {"color": "yellow", "value": 70}, {"color": "red", "value": 90}]}}]},
+]
+
+def bargauge(id, title, x, y, w, h, targets, unit="bytes", thresholds=None, threshold_mode="percentage", overrides=None):
+    # Default thresholds are "higher = worse" (percentage), correct for USAGE %.
+    # For AVAILABLE / FREE metrics (higher = better) pass inverted thresholds
+    # (red=low, green=high) with threshold_mode="absolute".
+    # `overrides` allows per-series colouring (see USED_FREE_OVERRIDES).
+    if thresholds is None:
+        thresholds = [
+            {"color": "green", "value": None},
+            {"color": "yellow", "value": 70},
+            {"color": "red",    "value": 90}
+        ]
     return {
         "datasource": ds(),
         "fieldConfig": {
@@ -82,16 +103,12 @@ def bargauge(id, title, x, y, w, h, targets, unit="bytes"):
                 "color": {"mode": "thresholds"},
                 "mappings": [],
                 "thresholds": {
-                    "mode": "percentage",
-                    "steps": [
-                        {"color": "green", "value": None},
-                        {"color": "yellow", "value": 70},
-                        {"color": "red",    "value": 90}
-                    ]
+                    "mode": threshold_mode,
+                    "steps": thresholds
                 },
                 "unit": unit
             },
-            "overrides": []
+            "overrides": overrides if overrides else []
         },
         "gridPos": {"h": h, "w": w, "x": x, "y": y},
         "id": id,
@@ -165,7 +182,14 @@ p.append(timeseries(i, "Memory Usage", 0, 15, 12, 8,
 
 p.append(bargauge(i, "Memory Available Now", 12, 15, 12, 8,
     [target(f'node_memory_MemAvailable_bytes{{nodename=~"{IF}"}}', "{{nodename}}")],
-    unit="bytes"
+    unit="bytes",
+    # Available memory: higher = better → green high, red low (absolute GiB).
+    thresholds=[
+        {"color": "red",    "value": None},        # < 8 GiB available  → critical
+        {"color": "yellow", "value": 8589934592},  # 8 GiB              → low
+        {"color": "green",  "value": 34359738368}  # ≥ 32 GiB           → healthy
+    ],
+    threshold_mode="absolute"
 )); i += 1
 
 # ── Row: Block Storage /mnt/data ─────────────────────────────────────────────
@@ -202,7 +226,8 @@ p.append(bargauge(i, "Block Storage — Used vs Free per Node (/mnt/data)", 0, 2
         target(f'node_filesystem_avail_bytes{{nodename=~"{IF}",mountpoint="/mnt/data"}}',
                "{{nodename}} free", "B"),
     ],
-    unit="bytes"
+    unit="bytes",
+    overrides=USED_FREE_OVERRIDES
 )); i += 1
 
 p.append(timeseries(i, "Block Storage Usage Over Time (/mnt/data)", 14, 28, 10, 8,
@@ -225,7 +250,8 @@ p.append(bargauge(i, "Disk Space — Used vs Free (all mounts)", 0, 37, 12, 9,
         target(f'node_filesystem_avail_bytes{{nodename=~"{IF}",fstype!~"tmpfs|devtmpfs|overlay",mountpoint!~"/boot.*"}}',
                "{{nodename}} {{mountpoint}} free",  "B"),
     ],
-    unit="bytes"
+    unit="bytes",
+    overrides=USED_FREE_OVERRIDES
 )); i += 1
 
 p.append(timeseries(i, "Disk I/O Throughput", 12, 37, 12, 9,
