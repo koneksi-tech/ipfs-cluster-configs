@@ -70,9 +70,9 @@ server {
 }
 
 server {
-    # http2 on same line as listen (nginx 1.18 / Ubuntu 20.04). Newer nginx also accepts this.
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
+    # HTTP/2 stays off (NGINX2Root, CVE-2026-123007/-123633) until nginx is 1.30.7+ / 1.31.9+ or a patched distro build.
+    listen 443 ssl;
+    listen [::]:443 ssl;
     server_name ${DOMAIN};
 
     ssl_certificate     ${SSL_CERT};
